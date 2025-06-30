@@ -15,7 +15,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
 
   const [mode, setMode] = useState("upload");
   const [videoFile, setVideoFile] = useState(null);
-  const [uploadedVideoUrl, setUploadedVideoUrl] = useState(null);
+  const [uploadedMediaUrl, setUploadedMediaUrl] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isUploaded, setIsUploaded] = useState(false);
   const [isCapturingVideo, setIsCapturingVideo] = useState(false);
@@ -41,7 +41,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     const file = e.target.files[0];
     if (file && (file.type.startsWith("video/") || file.type.startsWith("image/"))) {
       setVideoFile(file);
-      setUploadedVideoUrl(null);
+      setUploadedMediaUrl(null);
       setIsUploaded(false);
     } else {
       errorToast("Please select a valid image or video file");
@@ -49,29 +49,26 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     }
   };
 
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 480 },
+          height: { ideal: 848 },
+          aspectRatio: 9 / 16,
+          facingMode,
+        },
+        audio: true,
+      });
 
- const startCamera = async () => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        width: { ideal: 480 },
-        height: { ideal: 848 },
-        aspectRatio: 9 / 16,
-        facingMode,
-      },
-      audio: true,
-    });
-
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
-      videoRef.current.setAttribute("playsinline", true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.setAttribute("playsinline", true);
+      }
+    } catch (err) {
+      errorToast("Camera error: " + err.message);
     }
-  } catch (err) {
-    errorToast("Camera error: " + err.message);
-    console.error(err);
-  }
-};
-
+  };
 
   const switchCamera = async () => {
     setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
@@ -88,7 +85,6 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     canvas.height = video.videoWidth;
     const ctx = canvas.getContext("2d");
 
-    // Rotate canvas if in landscape
     ctx.save();
     ctx.translate(canvas.width / 2, canvas.height / 2);
     ctx.rotate((90 * Math.PI) / 180);
@@ -129,43 +125,38 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
       };
 
       mediaRecorder.onstop = () => {
-  const blob = new Blob(recordedChunks.current, { type: mimeType });
-  const videoURL = URL.createObjectURL(blob);
+        const blob = new Blob(recordedChunks.current, { type: mimeType });
+        const tempVideo = document.createElement("video");
+        const url = URL.createObjectURL(blob);
+        tempVideo.src = url;
 
-  const tempVideo = document.createElement("video");
-  tempVideo.src = videoURL;
-  tempVideo.muted = true;
-  tempVideo.playsInline = true;
+        tempVideo.onloadedmetadata = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = tempVideo.videoHeight;
+          canvas.height = tempVideo.videoWidth;
+          const ctx = canvas.getContext("2d");
 
-  tempVideo.onloadedmetadata = () => {
-    const canvas = document.createElement("canvas");
-    canvas.width = tempVideo.videoHeight;  // switch width and height
-    canvas.height = tempVideo.videoWidth;
+          tempVideo.currentTime = 0;
+          tempVideo.onseeked = () => {
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate((90 * Math.PI) / 180);
+            ctx.drawImage(tempVideo, -tempVideo.videoWidth / 2, -tempVideo.videoHeight / 2);
+            ctx.restore();
 
-    const ctx = canvas.getContext("2d");
-
-    tempVideo.currentTime = 0;
-    tempVideo.onseeked = () => {
-      ctx.save();
-      ctx.translate(canvas.width / 2, canvas.height / 2);
-      ctx.rotate((90 * Math.PI) / 180);
-      ctx.drawImage(tempVideo, -tempVideo.videoWidth / 2, -tempVideo.videoHeight / 2);
-      ctx.restore();
-
-      canvas.toBlob((rotatedBlob) => {
-        const rotatedFile = new File(
-          [rotatedBlob],
-          `portrait_${Date.now()}.mp4`,
-          { type: "video/mp4" }
-        );
-        setVideoFile(rotatedFile);
-        setIsCapturingVideo(false);
-        setIsUploaded(false);
-      }, "video/mp4");
-    };
-  };
-};
-
+            canvas.toBlob((rotatedBlob) => {
+              const rotatedFile = new File(
+                [rotatedBlob],
+                `portrait_${Date.now()}.mp4`,
+                { type: "video/mp4" }
+              );
+              setVideoFile(rotatedFile);
+              setIsCapturingVideo(false);
+              setIsUploaded(false);
+            }, "video/mp4");
+          };
+        };
+      };
 
       mediaRecorder.start();
       setIsCapturingVideo(true);
@@ -187,13 +178,11 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     }
     if (maxDurationRef.current) {
       clearTimeout(maxDurationRef.current);
-      maxDurationRef.current = null;
     }
   };
 
   const handleSubmit = async () => {
-    const fileToUpload = videoFile;
-    if (!fileToUpload) return errorToast("Please provide a video or photo");
+    if (!videoFile) return errorToast("Please provide a video or photo");
 
     setIsUploading(true);
     const formData = new FormData();
@@ -219,7 +208,8 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
         const text = await response.data.text();
         const json = JSON.parse(text);
         if (json.fileName) {
-          setUploadedVideoUrl(`https://cipla-backend.virtualspheretechnologies.in/api/video/${json.fileName}`);
+          const base = isImage ? "image" : "video";
+          setUploadedMediaUrl(`https://cipla-backend.virtualspheretechnologies.in/api/${base}/${json.fileName}`);
           setIsUploaded(true);
           successToast(json.message || "Upload successful");
         } else {
@@ -227,25 +217,26 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
         }
       } else if (contentType.includes("video")) {
         const blob = new Blob([response.data], { type: "video/mp4" });
-        setUploadedVideoUrl(URL.createObjectURL(blob));
+        setUploadedMediaUrl(URL.createObjectURL(blob));
         setIsUploaded(true);
         successToast("Upload successful");
       } else {
         errorToast("Unknown response format");
       }
     } catch (err) {
-      console.log(err)
+      console.error(err);
       errorToast("Upload failed");
     } finally {
       setIsUploading(false);
     }
   };
 
-  const downloadVideo = () => {
-    if (!uploadedVideoUrl) return;
+  const downloadMedia = () => {
+    if (!uploadedMediaUrl) return;
+    const ext = uploadedMediaUrl.includes("/image/") ? "jpg" : "mp4";
     const a = document.createElement("a");
-    a.href = uploadedVideoUrl;
-    a.download = `${doctorName.replace(/\s+/g, "_")}_merged_video.mp4`;
+    a.href = uploadedMediaUrl;
+    a.download = `${doctorName.replace(/\s+/g, "_")}_media.${ext}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -266,6 +257,8 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
               onClick={() => {
                 setMode(m);
                 setVideoFile(null);
+                setUploadedMediaUrl(null);
+                setIsUploaded(false);
                 if (m !== "upload") startCamera();
               }}
               className={`flex-1 border rounded-md px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 ${
@@ -327,7 +320,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
           )}
         </div>
 
-        {videoFile && !uploadedVideoUrl && (
+        {videoFile && !uploadedMediaUrl && (
           <div className="mt-2">
             <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
             {videoFile.type.startsWith("video/") ? (
@@ -345,7 +338,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
               <FaSave /> {isUploading ? "Uploading..." : "Upload"}
             </button>
           ) : (
-            <button onClick={downloadVideo} className="bg-green-600 text-white px-4 py-2 text-sm rounded-md flex items-center gap-2 hover:bg-green-700">
+            <button onClick={downloadMedia} className="bg-green-600 text-white px-4 py-2 text-sm rounded-md flex items-center gap-2 hover:bg-green-700">
               <FaDownload /> Download
             </button>
           )}
