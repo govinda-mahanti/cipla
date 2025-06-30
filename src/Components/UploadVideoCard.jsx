@@ -88,52 +88,64 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     }, "image/jpeg");
   };
 
-  const startVideoRecording = () => {
-    const stream = videoRef.current?.srcObject;
+const startVideoRecording = () => {
+  const stream = videoRef.current?.srcObject;
 
-    if (!stream) {
-      errorToast("Camera not initialized.");
-      return;
-    }
+  if (!stream) {
+    errorToast("Camera not initialized.");
+    return;
+  }
 
-    recordedChunks.current = [];
+  recordedChunks.current = [];
 
-    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-      ? "video/webm;codecs=vp9"
-      : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
-      ? "video/webm;codecs=vp8"
-      : "video/webm";
+  const mimeType = MediaRecorder.isTypeSupported("video/mp4")
+    ? "video/mp4"
+    : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+    ? "video/webm;codecs=vp9"
+    : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
+    ? "video/webm;codecs=vp8"
+    : "video/webm";
 
-    try {
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = mediaRecorder;
+  try {
+    const mediaRecorder = new MediaRecorder(stream, { mimeType });
+    mediaRecorderRef.current = mediaRecorder;
 
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) {
-          recordedChunks.current.push(e.data);
-        }
-      };
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) {
+        recordedChunks.current.push(e.data);
+      }
+    };
 
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(recordedChunks.current, { type: mimeType });
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(recordedChunks.current, { type: mimeType });
 
-        // ✅ Convert Blob to File
-        const file = new File([blob], `captured_video_${Date.now()}.webm`, {
-          type: mimeType,
-        });
+      // 🔧 Fix: convert Blob into File with a proper name and video/mp4 type
+      const timestamp = Date.now();
+      const fileName = `captured_${timestamp}.mp4`; // or .webm if not mp4 supported
 
-        setVideoFile(file);
-        setIsCapturingVideo(false);
-        setIsUploaded(false);
-      };
+      const file = new File([blob], fileName, { type: "video/mp4" });
 
-      mediaRecorder.start();
-      setIsCapturingVideo(true);
-    } catch (err) {
-      errorToast("Failed to start recording: " + err.message);
-      console.error("MediaRecorder error:", err);
-    }
-  };
+      setVideoFile(file);        // pretend it's uploaded
+      setCapturedBlob(null);     // not needed anymore
+      setIsCapturingVideo(false);
+      setIsUploaded(false);
+
+      console.log("🎥 Captured file ready to upload:", file.name, file.type);
+    };
+
+    mediaRecorder.onerror = (e) => {
+      errorToast("Recording error: " + e.error?.message || e.message);
+      console.error("MediaRecorder error:", e.error || e);
+    };
+
+    mediaRecorder.start();
+    setIsCapturingVideo(true);
+  } catch (err) {
+    errorToast("Failed to start recording: " + err.message);
+    console.error("MediaRecorder error:", err);
+  }
+};
+
 
   const stopVideoRecording = () => {
     if (
@@ -144,11 +156,14 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     }
   };
 
-  const handleSubmit = async () => {
-    if (!videoFile) {
-      errorToast("Please provide a video or photo");
-      return;
-    }
+const handleSubmit = async () => {
+  const fileToUpload = videoFile;
+
+  if (!fileToUpload) {
+    errorToast("Please provide a video or photo");
+    return;
+  }
+
 
     setIsUploading(true);
     const formData = new FormData();
