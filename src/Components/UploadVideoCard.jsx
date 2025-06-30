@@ -6,6 +6,7 @@ import {
   FaTimes,
   FaDownload,
   FaCamera,
+  FaSync,
 } from "react-icons/fa";
 import axios from "axios";
 import { successToast, errorToast } from "../Utils/toastConfig";
@@ -15,10 +16,13 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
 
   const [mode, setMode] = useState("upload");
   const [videoFile, setVideoFile] = useState(null);
+  const [capturedBlob, setCapturedBlob] = useState(null);
   const [uploadedVideoUrl, setUploadedVideoUrl] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isUploaded, setIsUploaded] = useState(false);
+
   const [isCapturingVideo, setIsCapturingVideo] = useState(false);
+  const [facingMode, setFacingMode] = useState("environment"); // 'user' or 'environment'
 
   const mediaRecorderRef = useRef(null);
   const videoRef = useRef(null);
@@ -27,11 +31,9 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (
-      file &&
-      (file.type.startsWith("video/") || file.type.startsWith("image/"))
-    ) {
+    if (file && (file.type.startsWith("video/") || file.type.startsWith("image/"))) {
       setVideoFile(file);
+      setCapturedBlob(null);
       setUploadedVideoUrl(null);
       setIsUploaded(false);
     } else {
@@ -42,20 +44,12 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
 
   const startCamera = async () => {
     try {
-      const hasPermissions = await navigator.permissions?.query({
-        name: "camera",
-      });
-      if (hasPermissions?.state === "denied") {
-        errorToast("Camera access is denied in browser settings");
-        return;
-      }
-
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 480 },
           height: { ideal: 848 },
           aspectRatio: 9 / 16,
-          facingMode: "user",
+          facingMode: { exact: facingMode },
         },
         audio: true,
       });
@@ -69,6 +63,13 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     }
   };
 
+  const toggleFacingMode = () => {
+    setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
+    setCapturedBlob(null);
+    setVideoFile(null);
+    startCamera();
+  };
+
   const capturePhoto = () => {
     if (!canvasRef.current || !videoRef.current) return;
     const video = videoRef.current;
@@ -79,8 +80,8 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     ctx.drawImage(video, 0, 0);
     canvas.toBlob((blob) => {
       if (blob) {
-        const file = new File([blob], "captured_image.jpg", { type: "image/jpeg" });
-        setVideoFile(file);
+        setCapturedBlob(blob);
+        setVideoFile(null);
         setIsUploaded(false);
       }
     }, "image/jpeg");
@@ -106,42 +107,34 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) {
+        if (e.data.size > 0) {
           recordedChunks.current.push(e.data);
         }
       };
 
       mediaRecorder.onstop = () => {
         const blob = new Blob(recordedChunks.current, { type: mimeType });
-        const file = new File([blob], "captured_video.webm", { type: mimeType });
-        setVideoFile(file); // Unified upload
+        setCapturedBlob(blob);
         setIsCapturingVideo(false);
+        setVideoFile(null);
         setIsUploaded(false);
-      };
-
-      mediaRecorder.onerror = (e) => {
-        errorToast("Recording error: " + e.error?.message || e.message);
       };
 
       mediaRecorder.start();
       setIsCapturingVideo(true);
     } catch (err) {
-      errorToast("Failed to start recording: " + err.message);
+      errorToast("Recording failed: " + err.message);
       console.error(err);
     }
   };
 
   const stopVideoRecording = () => {
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state === "recording"
-    ) {
-      mediaRecorderRef.current.stop();
-    }
+    mediaRecorderRef.current?.stop();
   };
 
   const handleSubmit = async () => {
-    if (!videoFile) {
+    const fileToUpload = videoFile || capturedBlob;
+    if (!fileToUpload) {
       errorToast("Please provide a video or photo");
       return;
     }
@@ -150,9 +143,9 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     const formData = new FormData();
     formData.append("doctor_id", doctorId);
 
-    const isImage = videoFile.type?.startsWith("image/");
+    const isImage = fileToUpload.type?.startsWith("image/");
     const fieldName = isImage ? "photo" : "video";
-    formData.append(fieldName, videoFile);
+    formData.append(fieldName, fileToUpload);
 
     const endpoint = isImage
       ? "https://cipla-backend.virtualspheretechnologies.in/api/capture-image"
@@ -161,25 +154,25 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     try {
       const response = await axios.post(endpoint, formData, {
         headers: {
-          Authorization: `${token}`,
+          Authorization: token,
           "Content-Type": "multipart/form-data",
         },
         responseType: "blob",
       });
 
       const contentType = response.headers["content-type"];
+
       if (response.status === 200 || response.status === 201) {
         if (contentType.includes("application/json")) {
           const text = await response.data.text();
           const json = JSON.parse(text);
-
           if (json.fileName) {
             const videoUrl = `https://cipla-backend.virtualspheretechnologies.in/api/video/${json.fileName}`;
             setUploadedVideoUrl(videoUrl);
             setIsUploaded(true);
             successToast(json.message || "Upload successful");
           } else {
-            errorToast(json.message || "Server returned no video file");
+            errorToast(json.message || "No video file returned");
           }
         } else if (contentType.includes("video")) {
           const videoBlob = new Blob([response.data], { type: "video/mp4" });
@@ -188,10 +181,10 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
           setIsUploaded(true);
           successToast("Upload successful");
         } else {
-          errorToast("Unsupported file type received from server.");
+          errorToast("Unsupported file type received.");
         }
       } else {
-        errorToast("Unexpected response status");
+        errorToast("Unexpected response");
       }
     } catch (err) {
       errorToast("Upload failed");
@@ -219,6 +212,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
           Upload or Capture Media for {doctorName}
         </div>
 
+        {/* Mode Buttons */}
         <div className="flex justify-between gap-3 mt-6 mb-4">
           <button
             onClick={() => setMode("upload")}
@@ -229,12 +223,13 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
             }`}
           >
             <FaUpload />
-            Upload from device
+            Upload
           </button>
 
           <button
             onClick={() => {
               setMode("photo");
+              setCapturedBlob(null);
               setVideoFile(null);
               startCamera();
             }}
@@ -245,12 +240,13 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
             }`}
           >
             <FaCamera />
-            Capture Photo
+            Photo
           </button>
 
           <button
             onClick={() => {
               setMode("video");
+              setCapturedBlob(null);
               setVideoFile(null);
               startCamera();
             }}
@@ -261,18 +257,31 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
             }`}
           >
             <FaCamera />
-            Capture Video
+            Video
           </button>
         </div>
 
+        {/* Camera Facing Toggle */}
+        {(mode === "video" || mode === "photo") && (
+          <div className="text-center mb-2">
+            <button
+              onClick={toggleFacingMode}
+              className="text-xs text-blue-500 hover:underline flex items-center gap-1 mx-auto"
+            >
+              <FaSync /> Switch Camera
+            </button>
+          </div>
+        )}
+
+        {/* Input or Camera Preview */}
         <div className="mb-4">
           {mode === "upload" && (
-            <div className="w-full">
+            <div>
               <label
                 htmlFor="media-upload"
-                className="w-full block border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-500 cursor-pointer hover:bg-gray-50"
+                className="block border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-500 cursor-pointer hover:bg-gray-50"
               >
-                {videoFile ? videoFile.name : "📁 Upload media (image or video)"}
+                {videoFile ? videoFile.name : "📁 Choose image or video"}
               </label>
               <input
                 id="media-upload"
@@ -289,6 +298,8 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
               <video
                 ref={videoRef}
                 autoPlay
+                playsInline
+                muted
                 className="w-full rounded-md border border-gray-300 mt-2"
               />
               <canvas ref={canvasRef} className="hidden" />
@@ -320,43 +331,38 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
           )}
         </div>
 
-        {uploadedVideoUrl && (
+        {/* Preview */}
+        {capturedBlob && capturedBlob.type?.startsWith("image/") && (
           <div className="mt-2">
-            <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
-            <video
-              controls
-              className="w-full rounded-md shadow border border-gray-300"
-              src={uploadedVideoUrl}
+            <img
+              src={URL.createObjectURL(capturedBlob)}
+              alt="Captured"
+              className="w-full rounded-md border shadow"
             />
           </div>
         )}
 
-        {videoFile &&
-          !uploadedVideoUrl &&
-          videoFile.type?.startsWith("video/") && (
-            <div className="mt-2">
-              <p className="text-sm font-medium text-gray-700 mb-2">Captured Video:</p>
-              <video
-                controls
-                src={URL.createObjectURL(videoFile)}
-                className="w-full rounded-md border border-gray-300"
-              />
-            </div>
-          )}
+        {capturedBlob && capturedBlob.type?.startsWith("video/") && (
+          <div className="mt-2">
+            <video
+              controls
+              src={URL.createObjectURL(capturedBlob)}
+              className="w-full rounded-md border shadow"
+            />
+          </div>
+        )}
 
-        {videoFile &&
-          !uploadedVideoUrl &&
-          videoFile.type?.startsWith("image/") && (
-            <div className="mt-2">
-              <p className="text-sm font-medium text-gray-700 mb-2">Captured Image:</p>
-              <img
-                src={URL.createObjectURL(videoFile)}
-                alt="Captured"
-                className="w-full rounded-md border border-gray-300"
-              />
-            </div>
-          )}
+        {uploadedVideoUrl && (
+          <div className="mt-2">
+            <video
+              controls
+              src={uploadedVideoUrl}
+              className="w-full rounded-md border"
+            />
+          </div>
+        )}
 
+        {/* Footer */}
         <div className="flex justify-end mt-6 gap-3">
           <button
             onClick={() => setShowVideoForm(false)}
@@ -383,7 +389,8 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
               onClick={downloadVideo}
               className="bg-green-600 text-white px-4 py-2 text-sm rounded-md flex items-center gap-2 hover:bg-green-700"
             >
-              <FaDownload /> Download
+              <FaDownload />
+              Download
             </button>
           )}
         </div>
