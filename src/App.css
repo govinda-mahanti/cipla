@@ -8,5 +8,8 @@
     /* overflow-x: hidden; */
     scroll-behavior: smooth;
   } 
+.rotate-portrait {
+  transform: rotate(0deg); /* Keep portrait upright */
+}
 
   
