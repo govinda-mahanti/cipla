@@ -19,18 +19,17 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [isUploaded, setIsUploaded] = useState(false);
   const [isCapturingVideo, setIsCapturingVideo] = useState(false);
+  const [facingMode, setFacingMode] = useState("user");
 
   const mediaRecorderRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const recordedChunks = useRef([]);
+  const maxDurationRef = useRef(null);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (
-      file &&
-      (file.type.startsWith("video/") || file.type.startsWith("image/"))
-    ) {
+    if (file && (file.type.startsWith("video/") || file.type.startsWith("image/"))) {
       setVideoFile(file);
       setUploadedVideoUrl(null);
       setIsUploaded(false);
@@ -42,9 +41,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
 
   const startCamera = async () => {
     try {
-      const hasPermissions = await navigator.permissions?.query({
-        name: "camera",
-      });
+      const hasPermissions = await navigator.permissions?.query({ name: "camera" });
       if (hasPermissions?.state === "denied") {
         errorToast("Camera access is denied in browser settings");
         return;
@@ -55,7 +52,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
           width: { ideal: 480 },
           height: { ideal: 848 },
           aspectRatio: 9 / 16,
-          facingMode: "user",
+          facingMode,
         },
         audio: true,
       });
@@ -67,6 +64,17 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
       errorToast("Camera error: " + err.message);
       console.error(err);
     }
+  };
+
+  const switchCamera = async () => {
+    setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
+
+    const stream = videoRef.current?.srcObject;
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+    }
+
+    await startCamera();
   };
 
   const capturePhoto = () => {
@@ -88,64 +96,71 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     }, "image/jpeg");
   };
 
-const startVideoRecording = () => {
-  const stream = videoRef.current?.srcObject;
+  const startVideoRecording = () => {
+    const stream = videoRef.current?.srcObject;
 
-  if (!stream) {
-    errorToast("Camera not initialized.");
-    return;
-  }
+    if (!stream) {
+      errorToast("Camera not initialized.");
+      return;
+    }
 
-  recordedChunks.current = [];
+    recordedChunks.current = [];
 
-  const mimeType = MediaRecorder.isTypeSupported("video/mp4")
-    ? "video/mp4"
-    : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-    ? "video/webm;codecs=vp9"
-    : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
-    ? "video/webm;codecs=vp8"
-    : "video/webm";
+    const mimeType = MediaRecorder.isTypeSupported("video/mp4")
+      ? "video/mp4"
+      : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+      ? "video/webm;codecs=vp9"
+      : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
+      ? "video/webm;codecs=vp8"
+      : "video/webm";
 
-  try {
-    const mediaRecorder = new MediaRecorder(stream, { mimeType });
-    mediaRecorderRef.current = mediaRecorder;
-
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data && e.data.size > 0) {
-        recordedChunks.current.push(e.data);
+    try {
+      if (!window.MediaRecorder) {
+        errorToast("MediaRecorder is not supported in this browser.");
+        return;
       }
-    };
 
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(recordedChunks.current, { type: mimeType });
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
 
-      // 🔧 Fix: convert Blob into File with a proper name and video/mp4 type
-      const timestamp = Date.now();
-      const fileName = `captured_${timestamp}.mp4`; // or .webm if not mp4 supported
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          recordedChunks.current.push(e.data);
+        }
+      };
 
-      const file = new File([blob], fileName, { type: "video/mp4" });
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks.current, { type: mimeType });
+        const timestamp = Date.now();
+        const fileName = `captured_${timestamp}.mp4`;
 
-      setVideoFile(file);        // pretend it's uploaded
-      setCapturedBlob(null);     // not needed anymore
-      setIsCapturingVideo(false);
-      setIsUploaded(false);
+        const file = new File([blob], fileName, { type: "video/mp4" });
 
-      console.log("🎥 Captured file ready to upload:", file.name, file.type);
-    };
+        setVideoFile(file);
+        setIsCapturingVideo(false);
+        setIsUploaded(false);
+        console.log("🎥 Captured file ready to upload:", file.name, file.type);
+      };
 
-    mediaRecorder.onerror = (e) => {
-      errorToast("Recording error: " + e.error?.message || e.message);
-      console.error("MediaRecorder error:", e.error || e);
-    };
+      mediaRecorder.onerror = (e) => {
+        errorToast("Recording error: " + e.error?.message || e.message);
+        console.error("MediaRecorder error:", e.error || e);
+      };
 
-    mediaRecorder.start();
-    setIsCapturingVideo(true);
-  } catch (err) {
-    errorToast("Failed to start recording: " + err.message);
-    console.error("MediaRecorder error:", err);
-  }
-};
+      mediaRecorder.start();
+      setIsCapturingVideo(true);
 
+      maxDurationRef.current = setTimeout(() => {
+        if (mediaRecorder.state === "recording") {
+          mediaRecorder.stop();
+          successToast("Recording stopped after max duration (30s)");
+        }
+      }, 40000);
+    } catch (err) {
+      errorToast("Failed to start recording: " + err.message);
+      console.error("MediaRecorder error:", err);
+    }
+  };
 
   const stopVideoRecording = () => {
     if (
@@ -154,16 +169,18 @@ const startVideoRecording = () => {
     ) {
       mediaRecorderRef.current.stop();
     }
+    if (maxDurationRef.current) {
+      clearTimeout(maxDurationRef.current);
+      maxDurationRef.current = null;
+    }
   };
 
-const handleSubmit = async () => {
-  const fileToUpload = videoFile;
-
-  if (!fileToUpload) {
-    errorToast("Please provide a video or photo");
-    return;
-  }
-
+  const handleSubmit = async () => {
+    const fileToUpload = videoFile;
+    if (!fileToUpload) {
+      errorToast("Please provide a video or photo");
+      return;
+    }
 
     setIsUploading(true);
     const formData = new FormData();
@@ -285,6 +302,17 @@ const handleSubmit = async () => {
           </button>
         </div>
 
+        {(mode === "photo" || mode === "video") && (
+          <div className="flex justify-end mb-2">
+            <button
+              onClick={switchCamera}
+              className="bg-gray-200 text-gray-800 px-3 py-1 text-xs rounded-md hover:bg-gray-300"
+            >
+              🔄 Switch Camera
+            </button>
+          </div>
+        )}
+
         <div className="mb-4">
           {mode === "upload" && (
             <div className="w-full">
@@ -309,6 +337,7 @@ const handleSubmit = async () => {
               <video
                 ref={videoRef}
                 autoPlay
+                playsInline
                 className="w-full rounded-md border border-gray-300 mt-2"
               />
               <canvas ref={canvasRef} className="hidden" />
@@ -340,7 +369,6 @@ const handleSubmit = async () => {
           )}
         </div>
 
-        {/* Preview */}
         {videoFile &&
           !uploadedVideoUrl &&
           (videoFile.type.startsWith("video/") ? (
@@ -354,9 +382,7 @@ const handleSubmit = async () => {
             </div>
           ) : (
             <div className="mt-2">
-              <p className="text-sm font-medium text-gray-700 mb-2">
-                Captured Image:
-              </p>
+              <p className="text-sm font-medium text-gray-700 mb-2">Captured Image:</p>
               <img
                 src={URL.createObjectURL(videoFile)}
                 alt="Captured"
@@ -365,7 +391,6 @@ const handleSubmit = async () => {
             </div>
           ))}
 
-        {/* Footer Buttons */}
         <div className="flex justify-end mt-6 gap-3">
           <button
             onClick={() => setShowVideoForm(false)}
