@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
-import { FaVideo, FaEye, FaSearch } from "react-icons/fa";
+import { FaVideo, FaEye, FaSearch, FaDownload } from "react-icons/fa";
 
 const specializations = [
   "All Specializations",
@@ -172,6 +172,30 @@ const AllDoctors = () => {
                       setShowModal(true);
                     }}
                   />
+
+                  {/* Download Image */}
+                  {doc.image_file && (
+                    <a
+                      href={`https://cipla-backend.virtualspheretechnologies.in/api/image/${doc.image_file}`}
+                      download={`doctor_${doc.doctor_fullName || "image"}.jpg`}
+                      className="text-green-600 hover:text-green-800"
+                      title="Download Image"
+                    >
+                      <FaDownload />
+                    </a>
+                  )}
+
+                  {/* Download Video */}
+                  {doc.video_file && (
+                    <a
+                      href={`https://cipla-backend.virtualspheretechnologies.in/api/video/${doc.video_file}`}
+                      download={`doctor_${doc.doctor_fullName || "video"}.mp4`}
+                      className="text-blue-600 hover:text-blue-800"
+                      title="Download Video"
+                    >
+                      <FaDownload />
+                    </a>
+                  )}
                 </td>
               </tr>
             ))}
@@ -228,29 +252,27 @@ const AllDoctors = () => {
               Files for {selectedDoctor.doctor_fullName}
             </h3>
 
-            {/* Image file */}
-          {selectedDoctor.image_file && (
-  <div>
-    <h4 className="font-medium text-gray-700 mb-1">Image</h4>
-    <img
-      src={`https://cipla-backend.virtualspheretechnologies.in/api/image/${selectedDoctor.image_file}`}
-      alt="Doctor"
-      className="w-full max-w-sm object-cover rounded border"
-    />
-  </div>
-)}
+            {selectedDoctor.image_file && (
+              <div>
+                <h4 className="font-medium text-gray-700 mb-1">Image</h4>
+                <img
+                  src={`https://cipla-backend.virtualspheretechnologies.in/api/image/${selectedDoctor.image_file}`}
+                  alt="Doctor"
+                  className="w-full max-w-sm object-cover rounded border"
+                />
+              </div>
+            )}
 
-{selectedDoctor.video_file && (
-  <div>
-    <h4 className="font-medium text-gray-700 mb-1 mt-4">Video</h4>
-    <video
-      controls
-      src={`https://cipla-backend.virtualspheretechnologies.in/api/video/${selectedDoctor.video_file}`}
-      className="w-full max-w-sm object-cover rounded border"
-    />
-  </div>
-)}
-
+            {selectedDoctor.video_file && (
+              <div>
+                <h4 className="font-medium text-gray-700 mb-1 mt-4">Video</h4>
+                <video
+                  controls
+                  src={`https://cipla-backend.virtualspheretechnologies.in/api/video/${selectedDoctor.video_file}`}
+                  className="w-full max-w-sm object-cover rounded border"
+                />
+              </div>
+            )}
 
             <div className="text-right">
               <button
