@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useSelector } from "react-redux";
 import {
   FaUpload,
@@ -20,12 +20,22 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
   const [isUploaded, setIsUploaded] = useState(false);
   const [isCapturingVideo, setIsCapturingVideo] = useState(false);
   const [facingMode, setFacingMode] = useState("user");
+  const [forcePortrait, setForcePortrait] = useState(false);
 
   const mediaRecorderRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const recordedChunks = useRef([]);
   const maxDurationRef = useRef(null);
+
+  useEffect(() => {
+    const checkOrientation = () => {
+      setForcePortrait(window.innerHeight < window.innerWidth);
+    };
+    window.addEventListener("resize", checkOrientation);
+    checkOrientation();
+    return () => window.removeEventListener("resize", checkOrientation);
+  }, []);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -68,12 +78,8 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
 
   const switchCamera = async () => {
     setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
-
     const stream = videoRef.current?.srcObject;
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-    }
-
+    if (stream) stream.getTracks().forEach((t) => t.stop());
     await startCamera();
   };
 
@@ -81,10 +87,17 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     if (!canvasRef.current || !videoRef.current) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = video.videoHeight;
+    canvas.height = video.videoWidth;
     const ctx = canvas.getContext("2d");
-    ctx.drawImage(video, 0, 0);
+
+    // Rotate canvas if in landscape
+    ctx.save();
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate((90 * Math.PI) / 180);
+    ctx.drawImage(video, -video.videoWidth / 2, -video.videoHeight / 2);
+    ctx.restore();
+
     canvas.toBlob((blob) => {
       if (blob) {
         const photoFile = new File([blob], `captured_photo_${Date.now()}.jpg`, {
@@ -98,11 +111,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
 
   const startVideoRecording = () => {
     const stream = videoRef.current?.srcObject;
-
-    if (!stream) {
-      errorToast("Camera not initialized.");
-      return;
-    }
+    if (!stream) return errorToast("Camera not initialized.");
 
     recordedChunks.current = [];
 
@@ -115,36 +124,21 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
       : "video/webm";
 
     try {
-      if (!window.MediaRecorder) {
-        errorToast("MediaRecorder is not supported in this browser.");
-        return;
-      }
-
       const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) {
-          recordedChunks.current.push(e.data);
-        }
+        if (e.data.size > 0) recordedChunks.current.push(e.data);
       };
 
       mediaRecorder.onstop = () => {
         const blob = new Blob(recordedChunks.current, { type: mimeType });
-        const timestamp = Date.now();
-        const fileName = `captured_${timestamp}.mp4`;
-
-        const file = new File([blob], fileName, { type: "video/mp4" });
-
+        const file = new File([blob], `captured_${Date.now()}.mp4`, {
+          type: "video/mp4",
+        });
         setVideoFile(file);
         setIsCapturingVideo(false);
         setIsUploaded(false);
-        console.log("🎥 Captured file ready to upload:", file.name, file.type);
-      };
-
-      mediaRecorder.onerror = (e) => {
-        errorToast("Recording error: " + e.error?.message || e.message);
-        console.error("MediaRecorder error:", e.error || e);
       };
 
       mediaRecorder.start();
@@ -153,20 +147,16 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
       maxDurationRef.current = setTimeout(() => {
         if (mediaRecorder.state === "recording") {
           mediaRecorder.stop();
-          successToast("Recording stopped after max duration (30s)");
+          successToast("Recording stopped after max duration (40s)");
         }
       }, 40000);
     } catch (err) {
-      errorToast("Failed to start recording: " + err.message);
-      console.error("MediaRecorder error:", err);
+      errorToast("Recording error: " + err.message);
     }
   };
 
   const stopVideoRecording = () => {
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state === "recording"
-    ) {
+    if (mediaRecorderRef.current?.state === "recording") {
       mediaRecorderRef.current.stop();
     }
     if (maxDurationRef.current) {
@@ -177,18 +167,13 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
 
   const handleSubmit = async () => {
     const fileToUpload = videoFile;
-    if (!fileToUpload) {
-      errorToast("Please provide a video or photo");
-      return;
-    }
+    if (!fileToUpload) return errorToast("Please provide a video or photo");
 
     setIsUploading(true);
     const formData = new FormData();
     formData.append("doctor_id", doctorId);
-
-    const isImage = videoFile.type?.startsWith("image/");
-    const fieldName = isImage ? "photo" : "video";
-    formData.append(fieldName, videoFile);
+    const isImage = videoFile.type.startsWith("image/");
+    formData.append(isImage ? "photo" : "video", videoFile);
 
     const endpoint = isImage
       ? "https://cipla-backend.virtualspheretechnologies.in/api/capture-image"
@@ -204,35 +189,26 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
       });
 
       const contentType = response.headers["content-type"];
-
-      if (response.status === 200 || response.status === 201) {
-        if (contentType.includes("application/json")) {
-          const text = await response.data.text();
-          const json = JSON.parse(text);
-
-          if (json.fileName) {
-            const videoUrl = `https://cipla-backend.virtualspheretechnologies.in/api/video/${json.fileName}`;
-            setUploadedVideoUrl(videoUrl);
-            setIsUploaded(true);
-            successToast(json.message || "Upload successful");
-          } else {
-            errorToast(json.message || "Server returned no video file");
-          }
-        } else if (contentType.includes("video")) {
-          const videoBlob = new Blob([response.data], { type: "video/mp4" });
-          const videoUrl = URL.createObjectURL(videoBlob);
-          setUploadedVideoUrl(videoUrl);
+      if (contentType.includes("application/json")) {
+        const text = await response.data.text();
+        const json = JSON.parse(text);
+        if (json.fileName) {
+          setUploadedVideoUrl(`https://cipla-backend.virtualspheretechnologies.in/api/video/${json.fileName}`);
           setIsUploaded(true);
-          successToast("Upload successful");
+          successToast(json.message || "Upload successful");
         } else {
-          errorToast("Unsupported file type received from server.");
+          errorToast(json.message || "No file in response");
         }
+      } else if (contentType.includes("video")) {
+        const blob = new Blob([response.data], { type: "video/mp4" });
+        setUploadedVideoUrl(URL.createObjectURL(blob));
+        setIsUploaded(true);
+        successToast("Upload successful");
       } else {
-        errorToast("Unexpected response status");
+        errorToast("Unknown response format");
       }
     } catch (err) {
       errorToast("Upload failed");
-      console.error(err);
     } finally {
       setIsUploading(false);
     }
@@ -257,49 +233,28 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
         </div>
 
         <div className="flex justify-between gap-3 mt-6 mb-4">
-          <button
-            onClick={() => setMode("upload")}
-            className={`flex-1 border rounded-md px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 ${
-              mode === "upload"
-                ? "border-blue-600 text-blue-600 bg-blue-50"
-                : "border-blue-300 text-blue-500 hover:bg-blue-100"
-            }`}
-          >
-            <FaUpload />
-            Upload from device
-          </button>
-
-          <button
-            onClick={() => {
-              setMode("photo");
-              setVideoFile(null);
-              startCamera();
-            }}
-            className={`flex-1 border rounded-md px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 ${
-              mode === "photo"
-                ? "border-green-600 text-green-600 bg-green-50"
-                : "border-green-300 text-green-500 hover:bg-green-100"
-            }`}
-          >
-            <FaCamera />
-            Capture Photo
-          </button>
-
-          <button
-            onClick={() => {
-              setMode("video");
-              setVideoFile(null);
-              startCamera();
-            }}
-            className={`flex-1 border rounded-md px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 ${
-              mode === "video"
-                ? "border-purple-600 text-purple-600 bg-purple-50"
-                : "border-purple-300 text-purple-500 hover:bg-purple-100"
-            }`}
-          >
-            <FaCamera />
-            Capture Video
-          </button>
+          {["upload", "photo", "video"].map((m) => (
+            <button
+              key={m}
+              onClick={() => {
+                setMode(m);
+                setVideoFile(null);
+                if (m !== "upload") startCamera();
+              }}
+              className={`flex-1 border rounded-md px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 ${
+                mode === m
+                  ? m === "upload"
+                    ? "border-blue-600 text-blue-600 bg-blue-50"
+                    : m === "photo"
+                    ? "border-green-600 text-green-600 bg-green-50"
+                    : "border-purple-600 text-purple-600 bg-purple-50"
+                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              <FaCamera />
+              {m === "upload" ? "Upload" : `Capture ${m}`}
+            </button>
+          ))}
         </div>
 
         {(mode === "photo" || mode === "video") && (
@@ -315,21 +270,10 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
 
         <div className="mb-4">
           {mode === "upload" && (
-            <div className="w-full">
-              <label
-                htmlFor="media-upload"
-                className="w-full block border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-500 cursor-pointer hover:bg-gray-50"
-              >
-                {videoFile ? videoFile.name : "📁 Upload media (image or video)"}
-              </label>
-              <input
-                id="media-upload"
-                type="file"
-                accept="video/*,image/*"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-            </div>
+            <label htmlFor="media-upload" className="block border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-500 cursor-pointer hover:bg-gray-50">
+              {videoFile ? videoFile.name : "📁 Upload media (image or video)"}
+              <input id="media-upload" type="file" accept="video/*,image/*" onChange={handleFileChange} className="hidden" />
+            </label>
           )}
 
           {(mode === "photo" || mode === "video") && (
@@ -338,85 +282,43 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
                 ref={videoRef}
                 autoPlay
                 playsInline
-                className="w-full rounded-md border border-gray-300 mt-2"
+                className={`w-full rounded-md border border-gray-300 mt-2 ${
+                  forcePortrait ? "rotate-90 scale-[1.33]" : ""
+                }`}
               />
               <canvas ref={canvasRef} className="hidden" />
               <div className="flex justify-center mt-2 gap-2">
                 {mode === "photo" ? (
-                  <button
-                    onClick={capturePhoto}
-                    className="bg-green-500 text-white px-4 py-1 rounded-md text-sm hover:bg-green-600"
-                  >
-                    Capture Photo
-                  </button>
+                  <button onClick={capturePhoto} className="bg-green-500 text-white px-4 py-1 rounded-md text-sm hover:bg-green-600">Capture</button>
                 ) : !isCapturingVideo ? (
-                  <button
-                    onClick={startVideoRecording}
-                    className="bg-purple-500 text-white px-4 py-1 rounded-md text-sm hover:bg-purple-600"
-                  >
-                    Start Recording
-                  </button>
+                  <button onClick={startVideoRecording} className="bg-purple-500 text-white px-4 py-1 rounded-md text-sm hover:bg-purple-600">Start</button>
                 ) : (
-                  <button
-                    onClick={stopVideoRecording}
-                    className="bg-purple-600 text-white px-4 py-1 rounded-md text-sm hover:bg-purple-700"
-                  >
-                    Stop Recording
-                  </button>
+                  <button onClick={stopVideoRecording} className="bg-purple-700 text-white px-4 py-1 rounded-md text-sm hover:bg-purple-800">Stop</button>
                 )}
               </div>
             </>
           )}
         </div>
 
-        {videoFile &&
-          !uploadedVideoUrl &&
-          (videoFile.type.startsWith("video/") ? (
-            <div className="mt-2">
-              <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
-              <video
-                controls
-                src={URL.createObjectURL(videoFile)}
-                className="w-full rounded-md border border-gray-300"
-              />
-            </div>
-          ) : (
-            <div className="mt-2">
-              <p className="text-sm font-medium text-gray-700 mb-2">Captured Image:</p>
-              <img
-                src={URL.createObjectURL(videoFile)}
-                alt="Captured"
-                className="w-full rounded-md border border-gray-300"
-              />
-            </div>
-          ))}
+        {videoFile && !uploadedVideoUrl && (
+          <div className="mt-2">
+            <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
+            {videoFile.type.startsWith("video/") ? (
+              <video controls src={URL.createObjectURL(videoFile)} className="w-full rounded-md border border-gray-300" />
+            ) : (
+              <img src={URL.createObjectURL(videoFile)} alt="Captured" className="w-full rounded-md border border-gray-300" />
+            )}
+          </div>
+        )}
 
         <div className="flex justify-end mt-6 gap-3">
-          <button
-            onClick={() => setShowVideoForm(false)}
-            className="border border-gray-300 text-blue-600 px-4 py-2 text-sm rounded-md hover:bg-gray-100"
-          >
-            Cancel
-          </button>
-
+          <button onClick={() => setShowVideoForm(false)} className="border border-gray-300 text-blue-600 px-4 py-2 text-sm rounded-md hover:bg-gray-100">Cancel</button>
           {!isUploaded ? (
-            <button
-              onClick={handleSubmit}
-              disabled={isUploading}
-              className={`px-4 py-2 text-sm rounded-md font-medium flex items-center gap-2 ${
-                isUploading
-                  ? "bg-gray-400 text-white cursor-not-allowed"
-                  : "bg-blue-600 text-white hover:bg-blue-700"
-              }`}
-            >
-              <FaSave />
-              {isUploading ? "Uploading..." : "Upload Media"}
+            <button onClick={handleSubmit} disabled={isUploading} className={`px-4 py-2 text-sm rounded-md font-medium flex items-center gap-2 ${isUploading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 text-white"}`}>
+              <FaSave /> {isUploading ? "Uploading..." : "Upload"}
             </button>
           ) : (
-            <button
-              onClick={downloadVideo}
-              className="bg-green-600 text-white px-4 py-2 text-sm rounded-md flex items-center gap-2 hover:bg-green-700"
-            >
+            <button onClick={downloadVideo} className="bg-green-600 text-white px-4 py-2 text-sm rounded-md flex items-center gap-2 hover:bg-green-700">
               <FaDownload /> Download
             </button>
           )}
