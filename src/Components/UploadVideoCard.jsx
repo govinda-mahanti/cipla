@@ -90,7 +90,6 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
         setCapturedBlob(blob);
         setVideoFile(null);
         setIsUploaded(false);
-        successToast("Image captured successfully"); // ✅ Show toast
       }
     }, "image/jpeg");
   };
