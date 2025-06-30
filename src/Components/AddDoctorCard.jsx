@@ -23,6 +23,7 @@ const AddDoctorCard = ({ setShowForm, setShowVideoForm, setDoctorName, setDoctoe
   });
 
   const [downloadImageUrl, setDownloadImageUrl] = useState("");
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -70,15 +71,22 @@ const AddDoctorCard = ({ setShowForm, setShowVideoForm, setDoctorName, setDoctoe
         const { doctorId, image_file } = response.data;
 
         successToast("Doctor added successfully");
-        setShowForm(false);
-        setShowVideoForm(true);
         setDoctorName(formData.doctorName);
         setDoctoeId(doctorId);
 
         if (image_file) {
-          setDownloadImageUrl(
-            `https://cipla-backend.virtualspheretechnologies.in/api/image/${image_file}`
-          );
+          const imageUrl = `https://cipla-backend.virtualspheretechnologies.in/api/image/${image_file}`;
+          setDownloadImageUrl(imageUrl);
+          setIsSubmitted(true);
+
+          // Automatically move to video upload form after 3s
+          setTimeout(() => {
+            setShowForm(false);
+            setShowVideoForm(true);
+          }, 3000);
+        } else {
+          setShowForm(false);
+          setShowVideoForm(true);
         }
       }
     } catch (err) {
@@ -179,23 +187,15 @@ const AddDoctorCard = ({ setShowForm, setShowVideoForm, setDoctorName, setDoctoe
               </div>
             </div>
 
-            {/* Download Button and Preview */}
+            {/* Image Preview + Download */}
             {downloadImageUrl && (
               <div className="mt-4 border-t pt-4 space-y-2">
                 <h4 className="text-sm font-medium text-gray-700">Uploaded Image:</h4>
                 <img
                   src={downloadImageUrl}
                   alt="Doctor"
-                  className="max-w-sm w-full rounded border"
+                  className="max-w-sm w-full rounded border object-cover"
                 />
-                <a
-                  href={downloadImageUrl}
-                  download="doctor_image.jpg"
-                  className="inline-flex items-center gap-2 px-3 py-2 text-sm text-white bg-green-600 rounded hover:bg-green-700"
-                >
-                  <FaDownload />
-                  Download Image
-                </a>
               </div>
             )}
 
@@ -207,12 +207,23 @@ const AddDoctorCard = ({ setShowForm, setShowVideoForm, setDoctorName, setDoctoe
               >
                 <FaTimes /> Cancel
               </button>
-              <button
-                onClick={handleSubmit}
-                className="bg-blue-600 text-white rounded-md px-4 py-2 text-sm flex items-center gap-1 hover:bg-blue-700"
-              >
-                <FaSave /> Save Doctor
-              </button>
+
+              {!isSubmitted ? (
+                <button
+                  onClick={handleSubmit}
+                  className="bg-blue-600 text-white rounded-md px-4 py-2 text-sm flex items-center gap-1 hover:bg-blue-700"
+                >
+                  <FaSave /> Save Doctor
+                </button>
+              ) : (
+                <a
+                  href={downloadImageUrl}
+                  download="doctor_image.jpg"
+                  className="bg-green-600 text-white rounded-md px-4 py-2 text-sm flex items-center gap-1 hover:bg-green-700"
+                >
+                  <FaDownload /> Download Image
+                </a>
+              )}
             </div>
           </div>
         </div>
