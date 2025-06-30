@@ -20,30 +20,34 @@ const Home = () => {
   const [showVideoForm, setShowVideoForm] = useState(false);
   const [doctorName, setDoctorName] = useState("");
   const [totalDoctors, setTotalDoctors] = useState(0);
-const [totalVideos, setTotalVideos] = useState(0);
+  const [totalVideos, setTotalVideos] = useState(0);
   const token = useSelector((state) => state.auth.token);
   const [doctorId, setDoctoeId] = useState(null);
-
-
 
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchCounts = async () => {
       try {
-        const doctorRes = await fetch("https://cipla-backend.virtualspheretechnologies.in/api/totalDoctors", {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `${token}`,
-          },
-        });
+        const doctorRes = await fetch(
+          "https://cipla-backend.virtualspheretechnologies.in/api/totalDoctors",
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `${token}`,
+            },
+          }
+        );
 
-        const videoRes = await fetch("https://cipla-backend.virtualspheretechnologies.in/api/totalVideos", {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `${token}`,
-          },
-        });
+        const videoRes = await fetch(
+          "https://cipla-backend.virtualspheretechnologies.in/api/totalVideos",
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `${token}`,
+            },
+          }
+        );
 
         const doctorData = await doctorRes.json();
         const videoData = await videoRes.json();
@@ -74,7 +78,9 @@ const [totalVideos, setTotalVideos] = useState(0);
               <FaUserMd className="text-white text-xl" />
             </div>
             <div>
-           <h2 className="text-3xl font-bold text-gray-800 leading-tight">{totalDoctors}</h2>
+              <h2 className="text-3xl font-bold text-gray-800 leading-tight">
+                {totalDoctors}
+              </h2>
 
               <p className="text-base text-gray-600">Total Doctors</p>
             </div>
@@ -92,7 +98,9 @@ const [totalVideos, setTotalVideos] = useState(0);
               <FaVideo className="text-white text-xl" />
             </div>
             <div>
-        <h2 className="text-3xl font-bold text-gray-800 leading-tight">{totalVideos}</h2>
+              <h2 className="text-3xl font-bold text-gray-800 leading-tight">
+                {totalVideos}
+              </h2>
 
               <p className="text-base text-gray-600">Total Videos</p>
             </div>

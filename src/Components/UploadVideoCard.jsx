@@ -95,30 +95,57 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
   };
 
   const startVideoRecording = () => {
+    const stream = videoRef.current?.srcObject;
+
+    if (!stream) {
+      errorToast("Camera not initialized.");
+      return;
+    }
+
     recordedChunks.current = [];
-    const stream = videoRef.current.srcObject;
-    const mediaRecorder = new MediaRecorder(stream, { mimeType: "video/webm" });
-    mediaRecorderRef.current = mediaRecorder;
 
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) recordedChunks.current.push(e.data);
-    };
+    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+      ? "video/webm;codecs=vp9"
+      : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
+      ? "video/webm;codecs=vp8"
+      : "video/webm";
 
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(recordedChunks.current, { type: "video/webm" });
-      setCapturedBlob(blob);
-      setIsCapturingVideo(false);
-      setVideoFile(null);
-      setIsUploaded(false);
-    };
+    try {
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
 
-    mediaRecorder.start();
-    setIsCapturingVideo(true);
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          recordedChunks.current.push(e.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks.current, { type: mimeType });
+        setCapturedBlob(blob);
+        setIsCapturingVideo(false);
+        setVideoFile(null);
+        setIsUploaded(false);
+      };
+
+      mediaRecorder.onerror = (e) => {
+        errorToast("Recording error: " + e.error?.message || e.message);
+        console.error("MediaRecorder error:", e.error || e);
+      };
+
+      mediaRecorder.start();
+      setIsCapturingVideo(true);
+    } catch (err) {
+      errorToast("Failed to start recording: " + err.message);
+      console.error("MediaRecorder error:", err);
+    }
   };
 
   const stopVideoRecording = () => {
-    mediaRecorderRef.current?.stop();
-  };
+  if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+    mediaRecorderRef.current.stop();
+  }
+};
 
   const handleSubmit = async () => {
     const fileToUpload = videoFile || capturedBlob;
@@ -236,7 +263,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
             Capture Photo
           </button>
           {/* capture video btn */}
-          {/* <button
+          <button
             onClick={() => {
               setMode("video");
               setCapturedBlob(null);
@@ -251,7 +278,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
           >
             <FaCamera />
             Capture Video
-          </button> */}
+          </button>
         </div>
 
         {/* Conditional Inputs */}
@@ -336,6 +363,21 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
             />
           </div>
         )}
+
+
+        {capturedBlob &&
+  !uploadedVideoUrl &&
+  capturedBlob.type?.startsWith("video/") && (
+    <div className="mt-2">
+      <p className="text-sm font-medium text-gray-700 mb-2">Captured Video:</p>
+      <video
+        controls
+        src={URL.createObjectURL(capturedBlob)}
+        className="w-full rounded-md border border-gray-300"
+      />
+    </div>
+  )}
+
 
         {/* Footer Buttons */}
         <div className="flex justify-end mt-6 gap-3">
