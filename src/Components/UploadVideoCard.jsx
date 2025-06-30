@@ -234,6 +234,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
         errorToast("Unknown response format");
       }
     } catch (err) {
+      console.log(err)
       errorToast("Upload failed");
     } finally {
       setIsUploading(false);
