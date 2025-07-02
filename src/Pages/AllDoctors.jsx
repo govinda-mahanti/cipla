@@ -83,6 +83,23 @@ const AllDoctors = () => {
     document.body.removeChild(link);
   };
 
+  const handleDownload = async (url, filename) => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } catch (err) {
+    console.error("Download failed", err);
+  }
+};
+
+
   return (
     <div className="w-full px-4 md:px-12 lg:px-24 py-6 bg-white space-y-6">
       <div className="flex flex-col md:flex-row justify-between gap-4">
@@ -173,29 +190,36 @@ const AllDoctors = () => {
                     }}
                   />
 
-                  {/* Download Image */}
-                  {doc.image_file && (
-                    <a
-                      href={`https://cipla-backend.virtualspheretechnologies.in/api/image/${doc.image_file}`}
-                      download={`doctor_${doc.doctor_fullName || "image"}.jpg`}
-                      className="text-green-600 hover:text-green-800"
-                      title="Download Image"
-                    >
-                      <FaDownload />
-                    </a>
-                  )}
+               {doc.image_file && (
+  <button
+    onClick={() =>
+      handleDownload(
+        `https://cipla-backend.virtualspheretechnologies.in/api/image/${doc.image_file}`,
+        `doctor_${doc.doctor_fullName || "image"}.jpg`
+      )
+    }
+    className="text-green-600 hover:text-green-800"
+    title="Download Image"
+  >
+    <FaDownload />
+  </button>
+)}
 
-                  {/* Download Video */}
-                  {doc.video_file && (
-                    <a
-                      href={`https://cipla-backend.virtualspheretechnologies.in/api/video/${doc.video_file}`}
-                      download={`doctor_${doc.doctor_fullName || "video"}.mp4`}
-                      className="text-blue-600 hover:text-blue-800"
-                      title="Download Video"
-                    >
-                      <FaDownload />
-                    </a>
-                  )}
+{doc.video_file && (
+  <button
+    onClick={() =>
+      handleDownload(
+        `https://cipla-backend.virtualspheretechnologies.in/api/video/${doc.video_file}`,
+        `doctor_${doc.doctor_fullName || "video"}.mp4`
+      )
+    }
+    className="text-blue-600 hover:text-blue-800"
+    title="Download Video"
+  >
+    <FaDownload />
+  </button>
+)}
+
                 </td>
               </tr>
             ))}

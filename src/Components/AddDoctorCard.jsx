@@ -52,6 +52,7 @@ const AddDoctorCard = ({
       ? formData.customSpecialization
       : formData.specialization;
   };
+  
 
   const validateForm = () => {
     const finalSpecialization = getFinalSpecialization();
