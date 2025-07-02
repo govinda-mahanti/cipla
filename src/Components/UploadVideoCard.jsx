@@ -51,36 +51,35 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
       setVideoFile(null);
     }
   };
-// ssssssssssssssssssssssssssssssssssssssssssssssssssss
- const startCamera = async () => {
-  try {
-    const hasPermissions = await navigator.permissions?.query({
-      name: "camera",
-    });
-    if (hasPermissions?.state === "denied") {
-      errorToast("Camera access is denied in browser settings");
-      return;
+
+  const startCamera = async () => {
+    try {
+      const hasPermissions = await navigator.permissions?.query({
+        name: "camera",
+      });
+      if (hasPermissions?.state === "denied") {
+        errorToast("Camera access is denied in browser settings");
+        return;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 480 },
+          height: { ideal: 848 },
+          aspectRatio: 9 / 16,
+          facingMode,
+        },
+        audio: true,
+      });
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      errorToast("Camera error: " + err.message);
+      console.error(err);
     }
-
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        width: { ideal: 480 },
-        height: { ideal: 848 },
-        aspectRatio: 9 / 16,
-        facingMode,
-      },
-      audio: true,
-    });
-
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
-    }
-  } catch (err) {
-    errorToast("Camera error: " + err.message);
-    console.error(err);
-  }
-};
-
+  };
 
   const switchCamera = async () => {
     setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
@@ -117,100 +116,62 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
       }
     }, "image/jpeg");
   };
-// gggggggggggggggggggggggggggggggggggggggggggggg
+
   const startVideoRecording = () => {
-  const video = videoRef.current;
-  const canvas = canvasRef.current;
+    const stream = videoRef.current?.srcObject;
+    if (!stream) return errorToast("Camera not initialized.");
 
-  if (!video || !canvas || !video.srcObject) {
-    return errorToast("Camera not initialized.");
-  }
+    recordedChunks.current = [];
 
-  const stream = video.srcObject;
-  recordedChunks.current = [];
+    const mimeType = MediaRecorder.isTypeSupported("video/mp4")
+      ? "video/mp4"
+      : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+      ? "video/webm;codecs=vp9"
+      : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
+      ? "video/webm;codecs=vp8"
+      : "video/webm";
 
-  const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-    ? "video/webm;codecs=vp9"
-    : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
-    ? "video/webm;codecs=vp8"
-    : "video/webm";
+    try {
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
 
-  const videoTrack = stream.getVideoTracks()[0];
-  const settings = videoTrack.getSettings();
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.current.push(e.data);
+      };
 
-  // Adjust canvas size and rotation
-  canvas.width = 480;
-  canvas.height = 848;
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks.current, { type: mimeType });
+        const file = new File([blob], `captured_${Date.now()}.mp4`, {
+          type: "video/mp4",
+        });
+        setVideoFile(file);
+        setIsCapturingVideo(false);
+        setIsUploaded(false);
+      };
 
-  const ctx = canvas.getContext("2d");
+      mediaRecorder.start();
+      setIsCapturingVideo(true);
 
-  const drawRotatedFrame = () => {
-    if (!video.paused && !video.ended) {
-      ctx.save();
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.translate(canvas.width / 2, canvas.height / 2);
-      ctx.rotate((90 * Math.PI) / 180); // 90° rotation
-      ctx.drawImage(
-        video,
-        -settings.height / 2,
-        -settings.width / 2,
-        settings.height,
-        settings.width
-      );
-      ctx.restore();
-      requestAnimationFrame(drawRotatedFrame);
+      maxDurationRef.current = setTimeout(() => {
+        if (mediaRecorder.state === "recording") {
+          mediaRecorder.stop();
+          successToast("Recording stopped after max duration (40s)");
+        }
+      }, 40000);
+    } catch (err) {
+      errorToast("Recording error: " + err.message);
     }
   };
 
-  drawRotatedFrame();
-
-  const canvasStream = canvas.captureStream(30); // record from rotated canvas
-  const audioTrack = stream.getAudioTracks()[0];
-  if (audioTrack) canvasStream.addTrack(audioTrack); // add audio if present
-
-  try {
-    const mediaRecorder = new MediaRecorder(canvasStream, { mimeType });
-    mediaRecorderRef.current = mediaRecorder;
-
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) recordedChunks.current.push(e.data);
-    };
-
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(recordedChunks.current, { type: mimeType });
-      const file = new File([blob], `captured_${Date.now()}.webm`, {
-        type: mimeType,
-      });
-      setVideoFile(file);
-      setIsCapturingVideo(false);
-      setIsUploaded(false);
-    };
-
-    mediaRecorder.start();
-    setIsCapturingVideo(true);
-
-    maxDurationRef.current = setTimeout(() => {
-      if (mediaRecorder.state === "recording") {
-        mediaRecorder.stop();
-        successToast("Recording stopped after max duration (40s)");
-      }
-    }, 40000);
-  } catch (err) {
-    errorToast("Recording error: " + err.message);
-  }
-};
-
-// jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj
   const stopVideoRecording = () => {
-  if (mediaRecorderRef.current?.state === "recording") {
-    mediaRecorderRef.current.stop();
-  }
-  if (maxDurationRef.current) {
-    clearTimeout(maxDurationRef.current);
-    maxDurationRef.current = null;
-  }
-};
-
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.stop();
+    }
+    if (maxDurationRef.current) {
+      clearTimeout(maxDurationRef.current);
+      maxDurationRef.current = null;
+    }
+  };
 
   const handleSubmit = async () => {
     const fileToUpload = videoFile;
@@ -334,7 +295,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
 
           {(mode === "photo" || mode === "video") && (
             <>
-              {/* <video
+              <video
                 ref={videoRef}
                 autoPlay
                 playsInline
@@ -346,31 +307,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
                   aspectRatio: "9 / 16",
                 }}
               />
-              <canvas ref={canvasRef} className="hidden" /> */}
-
-{/* hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh */}
-              <div className="relative mt-2">
-  <video
-    ref={videoRef}
-    autoPlay
-    playsInline
-    muted
-    className="w-full h-[480px] object-cover rounded-md border border-gray-300"
-    style={{
-      objectFit: "cover",
-      aspectRatio: "9 / 16",
-    }}
-  />
-
-  {/* Canvas used for rotated recording (not visible) */}
-  <canvas
-    ref={canvasRef}
-    width={480}
-    height={848}
-    className="hidden"
-  />
-</div>
-
+              <canvas ref={canvasRef} className="hidden" />
               <div className="flex justify-center mt-2 gap-2">
                 {mode === "photo" ? (
                   <button
