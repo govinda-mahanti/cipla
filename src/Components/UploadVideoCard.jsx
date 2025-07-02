@@ -88,7 +88,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     await startCamera();
   };
 
-  const cropVideoToPortrait = async (videoBlob) => {
+ const cropVideoToPortrait = async (videoBlob) => {
   const video = document.createElement("video");
   video.src = URL.createObjectURL(videoBlob);
   video.crossOrigin = "anonymous";
@@ -98,25 +98,36 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
   const originalWidth = video.videoWidth;
   const originalHeight = video.videoHeight;
 
-  // Define fixed portrait output resolution
   const targetWidth = 480;
-  const targetHeight = 854;
+  const targetHeight = 848; // Fixed portrait height (don't use original height)
 
-  // Calculate crop area from original video to maintain 9:16 crop before resizing
-  const aspectRatio = 9 / 16;
-  const cropHeight = originalHeight;
-  const cropWidth = cropHeight * aspectRatio;
-
-  // Center crop horizontally
-  const offsetX = (originalWidth - cropWidth) / 2;
-
-  // Create canvas at output size (fixed)
   const canvas = document.createElement("canvas");
   canvas.width = targetWidth;
   canvas.height = targetHeight;
   const ctx = canvas.getContext("2d");
 
-  const stream = canvas.captureStream(30); // 30fps
+  const offsetX = (originalWidth - targetWidth) / 2;
+
+  // Create canvas stream
+  let stream = canvas.captureStream(30);
+
+  // 👇 Add silent audio to fix GCP "no audio track" issue
+  const addSilentAudioTrack = (stream) => {
+    const audioCtx = new AudioContext();
+    const oscillator = audioCtx.createOscillator();
+    const dst = audioCtx.createMediaStreamDestination();
+    oscillator.connect(dst);
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.1); // short silence
+    const silentTrack = dst.stream.getAudioTracks()[0];
+    if (silentTrack) {
+      stream.addTrack(silentTrack);
+    }
+    return stream;
+  };
+
+  stream = addSilentAudioTrack(stream); // Add silent audio to canvas stream
+
   const newChunks = [];
 
   const recorder = new MediaRecorder(stream, {
@@ -131,13 +142,9 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
 
   recorder.onstop = () => {
     const croppedBlob = new Blob(newChunks, { type: "video/webm" });
-    const croppedFile = new File(
-      [croppedBlob],
-      `portrait_${Date.now()}.webm`,
-      {
-        type: "video/webm",
-      }
-    );
+    const croppedFile = new File([croppedBlob], `portrait_${Date.now()}.webm`, {
+      type: "video/webm",
+    });
     setVideoFile(croppedFile);
     setIsCapturingVideo(false);
     setIsUploaded(false);
@@ -155,19 +162,19 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
       video,
       offsetX,
       0,
-      cropWidth,
-      cropHeight,
+      targetWidth,
+      targetHeight,
       0,
       0,
       targetWidth,
       targetHeight
     );
-
     requestAnimationFrame(drawFrame);
   };
 
   drawFrame();
 };
+
 
 
 
