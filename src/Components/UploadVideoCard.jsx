@@ -49,33 +49,32 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     }
   };
 
-const startCamera = async () => {
-  try {
-    const hasPermissions = await navigator.permissions?.query({ name: "camera" });
-    if (hasPermissions?.state === "denied") {
-      errorToast("Camera access is denied in browser settings");
-      return;
+  const startCamera = async () => {
+    try {
+      const hasPermissions = await navigator.permissions?.query({ name: "camera" });
+      if (hasPermissions?.state === "denied") {
+        errorToast("Camera access is denied in browser settings");
+        return;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 480 },
+          height: { ideal: 848 },
+          aspectRatio: 9 / 16,
+          facingMode,
+        },
+        audio: true,
+      });
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      errorToast("Camera error: " + err.message);
+      console.error(err);
     }
-
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        width: { ideal: 720 },
-        height: { ideal: 1280 },
-        aspectRatio: 9 / 16,
-        facingMode: facingMode, // "user" or "environment"
-      },
-      audio: mode === "video", // Only enable audio for video recording
-    });
-
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
-    }
-  } catch (err) {
-    errorToast("Camera error: " + err.message);
-    console.error(err);
-  }
-};
-
+  };
 
   const switchCamera = async () => {
     setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
