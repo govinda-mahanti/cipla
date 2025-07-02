@@ -76,12 +76,6 @@ const Login = () => {
             />
           </div>
 
-          <div className="inline-block bg-[#6A1916] text-white text-xs font-semibold px-3 py-1 rounded-full mt-1">
-            90 YEARS
-          </div>
-          <p className="text-[#6A1916] text-sm mt-1 font-medium">
-            Caring for Life
-          </p>
         </div>
 
         <div className="text-center mb-6">
