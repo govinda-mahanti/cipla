@@ -88,88 +88,6 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     await startCamera();
   };
 
-const cropVideoToPortrait = async (videoBlob) => {
-  const video = document.createElement("video");
-  video.src = URL.createObjectURL(videoBlob);
-  video.crossOrigin = "anonymous";
-  video.muted = true;
-  await video.play();
-
-  const originalWidth = video.videoWidth;
-  const originalHeight = video.videoHeight;
-
-  const targetWidth = 480;
-  const targetHeight = 848;
-
-  const canvas = document.createElement("canvas");
-  canvas.width = targetWidth;
-  canvas.height = targetHeight;
-  const ctx = canvas.getContext("2d");
-
-  const offsetX = (originalWidth - targetWidth) / 2;
-
-  // Create video stream from canvas
-  const canvasStream = canvas.captureStream(30);
-
-  // ✅ Add silent audio that lasts the full duration of the video
-  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  const silentDuration = video.duration;
-
-  const silentSource = audioContext.createBufferSource();
-  const buffer = audioContext.createBuffer(1, audioContext.sampleRate * silentDuration, audioContext.sampleRate);
-  silentSource.buffer = buffer;
-
-  const dest = audioContext.createMediaStreamDestination();
-  silentSource.connect(dest);
-  silentSource.start();
-
-  const silentAudioTrack = dest.stream.getAudioTracks()[0];
-
-  // Merge canvas (video) + silent audio into one stream
-  if (silentAudioTrack) {
-    canvasStream.addTrack(silentAudioTrack);
-  }
-
-  const combinedStream = canvasStream;
-
-  const chunks = [];
-  const recorder = new MediaRecorder(combinedStream, {
-    mimeType: "video/webm;codecs=vp8,opus",
-  });
-
-  recorder.ondataavailable = (e) => {
-    if (e.data.size > 0) chunks.push(e.data);
-  };
-
-  recorder.onstop = () => {
-    const finalBlob = new Blob(chunks, { type: "video/webm" });
-    const finalFile = new File([finalBlob], `portrait_${Date.now()}.webm`, {
-      type: "video/webm",
-    });
-    setVideoFile(finalFile);
-    setIsCapturingVideo(false);
-    setIsUploaded(false);
-  };
-
-  recorder.start();
-
-  const drawFrame = () => {
-    if (video.paused || video.ended) {
-      recorder.stop();
-      return;
-    }
-
-    ctx.drawImage(video, offsetX, 0, targetWidth, targetHeight, 0, 0, targetWidth, targetHeight);
-    requestAnimationFrame(drawFrame);
-  };
-
-  drawFrame();
-};
-
-
-
-
-
   const capturePhoto = () => {
     if (!canvasRef.current || !videoRef.current) return;
     const video = videoRef.current;
@@ -220,20 +138,16 @@ const cropVideoToPortrait = async (videoBlob) => {
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) recordedChunks.current.push(e.data);
       };
-//mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
+
       mediaRecorder.onstop = () => {
-  const blob = new Blob(recordedChunks.current, { type: mimeType });
-  const originalFile = new File([blob], `captured_${Date.now()}.webm`, {
-    type: mimeType,
-  });
-
-  // Optional: set original file temporarily
-  setVideoFile(originalFile);
-
-  // Crop and save portrait version
-  cropVideoToPortrait(blob);
-};
-
+        const blob = new Blob(recordedChunks.current, { type: mimeType });
+        const file = new File([blob], `captured_${Date.now()}.mp4`, {
+          type: "video/mp4",
+        });
+        setVideoFile(file);
+        setIsCapturingVideo(false);
+        setIsUploaded(false);
+      };
 
       mediaRecorder.start();
       setIsCapturingVideo(true);
