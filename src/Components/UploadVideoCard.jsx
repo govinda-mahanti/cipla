@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useSelector } from "react-redux";
 import {
@@ -50,29 +49,32 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     }
   };
 
+  const startCamera = async () => {
+    try {
+      const hasPermissions = await navigator.permissions?.query({ name: "camera" });
+      if (hasPermissions?.state === "denied") {
+        errorToast("Camera access is denied in browser settings");
+        return;
+      }
 
- const startCamera = async () => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        width: { ideal: 480 },
-        height: { ideal: 848 },
-        aspectRatio: 9 / 16,
-        facingMode,
-      },
-      audio: true,
-    });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 480 },
+          height: { ideal: 848 },
+          aspectRatio: 9 / 16,
+          facingMode,
+        },
+        audio: true,
+      });
 
-    if (videoRef.current) {
-      videoRef.current.srcObject = stream;
-      videoRef.current.setAttribute("playsinline", true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      errorToast("Camera error: " + err.message);
+      console.error(err);
     }
-  } catch (err) {
-    errorToast("Camera error: " + err.message);
-    console.error(err);
-  }
-};
-
+  };
 
   const switchCamera = async () => {
     setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
@@ -130,43 +132,14 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
       };
 
       mediaRecorder.onstop = () => {
-  const blob = new Blob(recordedChunks.current, { type: mimeType });
-  const videoURL = URL.createObjectURL(blob);
-
-  const tempVideo = document.createElement("video");
-  tempVideo.src = videoURL;
-  tempVideo.muted = true;
-  tempVideo.playsInline = true;
-
-  tempVideo.onloadedmetadata = () => {
-    const canvas = document.createElement("canvas");
-    canvas.width = tempVideo.videoHeight;  // switch width and height
-    canvas.height = tempVideo.videoWidth;
-
-    const ctx = canvas.getContext("2d");
-
-    tempVideo.currentTime = 0;
-    tempVideo.onseeked = () => {
-      ctx.save();
-      ctx.translate(canvas.width / 2, canvas.height / 2);
-      ctx.rotate((90 * Math.PI) / 180);
-      ctx.drawImage(tempVideo, -tempVideo.videoWidth / 2, -tempVideo.videoHeight / 2);
-      ctx.restore();
-
-      canvas.toBlob((rotatedBlob) => {
-        const rotatedFile = new File(
-          [rotatedBlob],
-          `portrait_${Date.now()}.mp4`,
-          { type: "video/mp4" }
-        );
-        setVideoFile(rotatedFile);
+        const blob = new Blob(recordedChunks.current, { type: mimeType });
+        const file = new File([blob], `captured_${Date.now()}.mp4`, {
+          type: "video/mp4",
+        });
+        setVideoFile(file);
         setIsCapturingVideo(false);
         setIsUploaded(false);
-      }, "video/mp4");
-    };
-  };
-};
-
+      };
 
       mediaRecorder.start();
       setIsCapturingVideo(true);
@@ -236,7 +209,6 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
       }
     } catch (err) {
       errorToast("Upload failed");
-      console.log(err)
     } finally {
       setIsUploading(false);
     }
