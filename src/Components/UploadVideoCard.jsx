@@ -9,35 +9,6 @@ import {
 } from "react-icons/fa";
 import axios from "axios";
 import { successToast, errorToast } from "../Utils/toastConfig";
-import { createFFmpeg, fetchFile } from "@ffmpeg/ffmpeg";
-const ffmpeg = createFFmpeg({ log: true });
-
-const rotateVideoToPortrait = async (file) => {
-  if (!ffmpeg.isLoaded()) await ffmpeg.load();
-
-  const inputName = "input.mp4";
-  const outputName = "output.mp4";
-
-  // Write file to virtual FS
-  ffmpeg.FS("writeFile", inputName, await fetchFile(file));
-
-  // Rotate using transpose=1 (90° clockwise)
-  await ffmpeg.run(
-    "-i", inputName,
-    "-vf", "transpose=1",
-    "-metadata:s:v", "rotate=0",
-    "-preset", "ultrafast",
-    outputName
-  );
-
-  const data = ffmpeg.FS("readFile", outputName);
-  const rotatedBlob = new Blob([data.buffer], { type: "video/mp4" });
-
-  return new File([rotatedBlob], `rotated_${Date.now()}.mp4`, {
-    type: "video/mp4",
-  });
-};
-
 
 const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
   const token = useSelector((state) => state.auth.token);
@@ -144,11 +115,19 @@ const startCamera = async () => {
 };
 
 
-    const startVideoRecording = () => {
+  const startVideoRecording = () => {
     const stream = videoRef.current?.srcObject;
     if (!stream) return errorToast("Camera not initialized.");
+
     recordedChunks.current = [];
-    const mimeType = MediaRecorder.isTypeSupported("video/mp4") ? "video/mp4" : "video/webm";
+
+    const mimeType = MediaRecorder.isTypeSupported("video/mp4")
+      ? "video/mp4"
+      : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+      ? "video/webm;codecs=vp9"
+      : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
+      ? "video/webm;codecs=vp8"
+      : "video/webm";
 
     try {
       const mediaRecorder = new MediaRecorder(stream, { mimeType });
@@ -160,24 +139,12 @@ const startCamera = async () => {
 
       mediaRecorder.onstop = () => {
         const blob = new Blob(recordedChunks.current, { type: mimeType });
-        const originalFile = new File([blob], `captured_${Date.now()}.mp4`, { type: "video/mp4" });
-
-        const processAndSetVideo = async () => {
-          try {
-            successToast("Processing video to portrait...");
-            const rotatedFile = await rotateVideoToPortrait(originalFile);
-            setVideoFile(rotatedFile);
-            successToast("Video rotated successfully");
-          } catch (err) {
-            console.error("Rotation failed", err);
-            errorToast("Video rotation failed. Using original.");
-            setVideoFile(originalFile);
-          }
-          setIsCapturingVideo(false);
-          setIsUploaded(false);
-        };
-
-        processAndSetVideo();
+        const file = new File([blob], `captured_${Date.now()}.mp4`, {
+          type: "video/mp4",
+        });
+        setVideoFile(file);
+        setIsCapturingVideo(false);
+        setIsUploaded(false);
       };
 
       mediaRecorder.start();
@@ -193,7 +160,6 @@ const startCamera = async () => {
       errorToast("Recording error: " + err.message);
     }
   };
-
 
   const stopVideoRecording = () => {
     if (mediaRecorderRef.current?.state === "recording") {
