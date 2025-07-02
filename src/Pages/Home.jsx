@@ -72,9 +72,9 @@ const Home = () => {
       </div> */}
       <div className="p-6 mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 xl:max-w-7xl xl:mx-auto">
         {/* Card 1: Total Doctors */}
-        <div className="bg-white h-[200px] rounded-2xl shadow-sm p-5 border-t-4 border-blue-600">
+        <div className="bg-white h-[200px] rounded-2xl shadow-sm p-5 border-t-4 border-[#6A1916]">
           <div className="flex items-center space-x-4 mb-4">
-            <div className="p-3 rounded-md bg-blue-600">
+            <div className="p-3 rounded-md bg-[#6A1916]">
               <FaUserMd className="text-white text-xl" />
             </div>
             <div>
@@ -92,9 +92,9 @@ const Home = () => {
         </div>
 
         {/* Card 2: Total Videos */}
-        <div className="bg-white h-[200px] rounded-xl shadow-sm p-5 border-t-4 border-blue-600">
+        <div className="bg-white h-[200px] rounded-xl shadow-sm p-5 border-t-4 border-[#6A1916]">
           <div className="flex items-center space-x-4 mb-4">
-            <div className="p-3 rounded-md bg-green-500">
+            <div className="p-3 rounded-md bg-[#6A1916]">
               <FaVideo className="text-white text-xl" />
             </div>
             <div>
@@ -112,7 +112,7 @@ const Home = () => {
         </div>
 
         {/* Card 3: Field Managers */}
-        {/* <div className="bg-white h-[200px] rounded-xl shadow-sm p-5 border-t-4 border-blue-600">
+        {/* <div className="bg-white h-[200px] rounded-xl shadow-sm p-5 border-t-4 border-[#6A1916]">
           <div className="flex items-center space-x-4 mb-4">
             <div className="p-3 rounded-md bg-gradient-to-r from-purple-500 to-blue-500">
               <FaUsers className="text-white text-xl" />
@@ -131,7 +131,7 @@ const Home = () => {
         </div> */}
 
         {/* Card 4: Downloads */}
-        {/* <div className="bg-white h-[200px] rounded-xl shadow-sm p-5 border-t-4 border-blue-600">
+        {/* <div className="bg-white h-[200px] rounded-xl shadow-sm p-5 border-t-4 border-[#6A1916]">
           <div className="flex items-center space-x-4 mb-4">
             <div className="p-3 rounded-md bg-gradient-to-r from-yellow-400 to-orange-400">
               <FaDownload className="text-white text-xl" />
@@ -161,10 +161,10 @@ const Home = () => {
             onClick={() => {
               setShowForm(true);
             }}
-            className="bg-white rounded-xl shadow-sm p-5 border-t-4 border-blue-600 flex items-center justify-between transition-all duration-300 transform hover:scale-[1.03] hover:-translate-y-1 hover:shadow-lg cursor-pointer"
+            className="bg-white rounded-xl shadow-sm p-5 border-t-4 border-[#6A1916] flex items-center justify-between transition-all duration-300 transform hover:scale-[1.03] hover:-translate-y-1 hover:shadow-lg cursor-pointer"
           >
             <div className="flex items-start space-x-3">
-              <div className="p-3 rounded-md bg-blue-600">
+              <div className="p-3 rounded-md bg-[#6A1916]">
                 <FaUserPlus className="text-white text-xl" />
               </div>
               <div>
@@ -198,10 +198,10 @@ const Home = () => {
             onClick={() => {
               navigate("/all-doctors");
             }}
-            className="bg-white rounded-xl shadow-sm p-5 border-t-4 border-purple-500 flex items-center justify-between transition-all duration-300 transform hover:scale-[1.03] hover:-translate-y-1 hover:shadow-lg cursor-pointer"
+            className="bg-white rounded-xl shadow-sm p-5 border-t-4 border-[#6A1916] flex items-center justify-between transition-all duration-300 transform hover:scale-[1.03] hover:-translate-y-1 hover:shadow-lg cursor-pointer"
           >
             <div className="flex items-start space-x-3">
-              <div className="p-3 rounded-md bg-gradient-to-r from-purple-500 to-blue-500">
+              <div className="p-3 rounded-md bg-[#6A1916]">
                 <FaUsers className="text-white text-xl" />
               </div>
               <div>

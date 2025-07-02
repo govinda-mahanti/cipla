@@ -230,158 +230,159 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
   };
 
   return (
-  <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center overflow-y-auto">
-    <div className="bg-white w-full max-w-md rounded-xl shadow-lg p-6 my-8">
-      <div className="bg-blue-600 text-white font-semibold text-lg px-4 py-2 rounded-t-md">
-        <FaUpload className="inline-block mr-2" />
-        Upload or Capture Media for {doctorName}
-      </div>
+<div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center overflow-y-auto">
+  <div className="bg-white w-full max-w-3xl rounded-xl shadow-lg p-6 my-8">
+    <div className="bg-[#6A1916] text-white font-semibold text-lg px-4 py-2 rounded-t-md">
+      <FaUpload className="inline-block mr-2" />
+      Upload or Capture Media for {doctorName}
+    </div>
 
-      <div className="flex justify-between gap-3 mt-6 mb-4">
-        {["upload", "photo", "video"].map((m) => (
-          <button
-            key={m}
-            onClick={() => {
-              setMode(m);
-              setVideoFile(null);
-              if (m !== "upload") startCamera();
-            }}
-            className={`flex-1 border rounded-md px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 ${
-              mode === m
-                ? m === "upload"
-                  ? "border-blue-600 text-blue-600 bg-blue-50"
-                  : m === "photo"
-                  ? "border-green-600 text-green-600 bg-green-50"
-                  : "border-purple-600 text-purple-600 bg-purple-50"
-                : "border-gray-300 text-gray-600 hover:bg-gray-100"
-            }`}
-          >
-            <FaCamera />
-            {m === "upload" ? "Upload" : `Capture ${m}`}
-          </button>
-        ))}
+    <div className="flex justify-between gap-3 mt-6 mb-4">
+      {["upload", "photo", "video"].map((m) => (
+        <button
+          key={m}
+          onClick={() => {
+            setMode(m);
+            setVideoFile(null);
+            if (m !== "upload") startCamera();
+          }}
+          className={`flex-1 border rounded-md px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 ${
+            mode === m
+              ? m === "upload"
+                ? "border-[#6A1916] text-[#6A1916] bg-[#f8e8e5]"
+                : m === "photo"
+                ? "border-green-600 text-green-600 bg-green-50"
+                : "border-purple-600 text-purple-600 bg-purple-50"
+              : "border-gray-300 text-gray-600 hover:bg-gray-100"
+          }`}
+        >
+          <FaCamera />
+          {m === "upload" ? "Upload" : `Capture ${m}`}
+        </button>
+      ))}
+    </div>
+
+    {(mode === "photo" || mode === "video") && (
+      <div className="flex justify-end mb-2">
+        <button
+          onClick={switchCamera}
+          className="bg-[#f5eaea] text-[#6A1916] px-3 py-1 text-xs rounded-md hover:bg-[#ecd7d7]"
+        >
+          🔄 Switch Camera
+        </button>
       </div>
+    )}
+
+    <div className="mb-4">
+      {mode === "upload" && (
+        <label
+          htmlFor="media-upload"
+          className="block border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-500 cursor-pointer hover:bg-gray-50"
+        >
+          {videoFile ? videoFile.name : "📁 Upload media (image or video)"}
+          <input
+            id="media-upload"
+            type="file"
+            accept="video/*,image/*"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+        </label>
+      )}
 
       {(mode === "photo" || mode === "video") && (
-        <div className="flex justify-end mb-2">
-          <button
-            onClick={switchCamera}
-            className="bg-gray-200 text-gray-800 px-3 py-1 text-xs rounded-md hover:bg-gray-300"
-          >
-            🔄 Switch Camera
-          </button>
-        </div>
+        <>
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-[480px] object-cover rounded-md border border-gray-300 mt-2"
+            style={{
+              transform: "rotate(0deg)",
+              objectFit: "cover",
+              aspectRatio: "9 / 16",
+            }}
+          />
+          <canvas ref={canvasRef} className="hidden" />
+          <div className="flex justify-center mt-2 gap-2">
+            {mode === "photo" ? (
+              <button
+                onClick={capturePhoto}
+                className="bg-green-500 text-white px-4 py-1 rounded-md text-sm hover:bg-green-600"
+              >
+                Capture
+              </button>
+            ) : !isCapturingVideo ? (
+              <button
+                onClick={startVideoRecording}
+                className="bg-purple-500 text-white px-4 py-1 rounded-md text-sm hover:bg-purple-600"
+              >
+                Start
+              </button>
+            ) : (
+              <button
+                onClick={stopVideoRecording}
+                className="bg-purple-700 text-white px-4 py-1 rounded-md text-sm hover:bg-purple-800"
+              >
+                Stop
+              </button>
+            )}
+          </div>
+        </>
       )}
+    </div>
 
-      <div className="mb-4">
-        {mode === "upload" && (
-          <label
-            htmlFor="media-upload"
-            className="block border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-500 cursor-pointer hover:bg-gray-50"
-          >
-            {videoFile ? videoFile.name : "📁 Upload media (image or video)"}
-            <input
-              id="media-upload"
-              type="file"
-              accept="video/*,image/*"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-          </label>
-        )}
-
-        {(mode === "photo" || mode === "video") && (
-          <>
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-[480px] object-cover rounded-md border border-gray-300 mt-2"
-              style={{
-                transform: "rotate(0deg)",
-                objectFit: "cover",
-                aspectRatio: "9 / 16",
-              }}
-            />
-            <canvas ref={canvasRef} className="hidden" />
-            <div className="flex justify-center mt-2 gap-2">
-              {mode === "photo" ? (
-                <button
-                  onClick={capturePhoto}
-                  className="bg-green-500 text-white px-4 py-1 rounded-md text-sm hover:bg-green-600"
-                >
-                  Capture
-                </button>
-              ) : !isCapturingVideo ? (
-                <button
-                  onClick={startVideoRecording}
-                  className="bg-purple-500 text-white px-4 py-1 rounded-md text-sm hover:bg-purple-600"
-                >
-                  Start
-                </button>
-              ) : (
-                <button
-                  onClick={stopVideoRecording}
-                  className="bg-purple-700 text-white px-4 py-1 rounded-md text-sm hover:bg-purple-800"
-                >
-                  Stop
-                </button>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-
-      {videoFile && !uploadedVideoUrl && (
-        <div className="mt-2">
-          <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
-          {videoFile.type.startsWith("video/") ? (
-            <video
-              controls
-              src={URL.createObjectURL(videoFile)}
-              className="w-full rounded-md border border-gray-300"
-            />
-          ) : (
-            <img
-              src={URL.createObjectURL(videoFile)}
-              alt="Captured"
-              className="w-full rounded-md border border-gray-300"
-            />
-          )}
-        </div>
-      )}
-
-      <div className="flex justify-end mt-6 gap-3">
-        <button
-          onClick={() => setShowVideoForm(false)}
-          className="border border-gray-300 text-blue-600 px-4 py-2 text-sm rounded-md hover:bg-gray-100"
-        >
-          Cancel
-        </button>
-        {!isUploaded ? (
-          <button
-            onClick={handleSubmit}
-            disabled={isUploading}
-            className={`px-4 py-2 text-sm rounded-md font-medium flex items-center gap-2 ${
-              isUploading
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700 text-white"
-            }`}
-          >
-            <FaSave /> {isUploading ? "Uploading..." : "Upload"}
-          </button>
+    {videoFile && !uploadedVideoUrl && (
+      <div className="mt-2">
+        <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
+        {videoFile.type.startsWith("video/") ? (
+          <video
+            controls
+            src={URL.createObjectURL(videoFile)}
+            className="w-full rounded-md border border-gray-300"
+          />
         ) : (
-          <button
-            onClick={downloadVideo}
-            className="bg-green-600 text-white px-4 py-2 text-sm rounded-md flex items-center gap-2 hover:bg-green-700"
-          >
-            <FaDownload /> Download
-          </button>
+          <img
+            src={URL.createObjectURL(videoFile)}
+            alt="Captured"
+            className="w-full rounded-md border border-gray-300"
+          />
         )}
       </div>
+    )}
+
+    <div className="flex justify-end mt-6 gap-3">
+      <button
+        onClick={() => setShowVideoForm(false)}
+        className="border border-gray-300 text-[#6A1916] px-4 py-2 text-sm rounded-md hover:bg-gray-100"
+      >
+        Cancel
+      </button>
+      {!isUploaded ? (
+        <button
+          onClick={handleSubmit}
+          disabled={isUploading}
+          className={`px-4 py-2 text-sm rounded-md font-medium flex items-center gap-2 ${
+            isUploading
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-[#6A1916] hover:bg-[#8B3E2D] text-white"
+          }`}
+        >
+          <FaSave /> {isUploading ? "Uploading..." : "Upload"}
+        </button>
+      ) : (
+        <button
+          onClick={downloadVideo}
+          className="bg-green-600 text-white px-4 py-2 text-sm rounded-md flex items-center gap-2 hover:bg-green-700"
+        >
+          <FaDownload /> Download
+        </button>
+      )}
     </div>
   </div>
+</div>
+
 );
 
 };

@@ -53,23 +53,22 @@ const Navbar = () => {
   useEffect(() => {
     if (location.state?.showAddDoctor) {
       setShowForm(true);
-      // Optional: Remove the state after showing modal
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
 
   return (
-    <nav className="bg-blue-700 text-white shadow">
+    <nav className="bg-[#6A1916] text-white shadow">
       <div className="max-w-screen-xl mx-auto px-4">
         <div className="flex justify-between items-center py-3">
           {/* Left: Logo */}
-          <div
+          {/* <div
             className="flex items-center space-x-2 font-bold text-lg cursor-pointer"
             onClick={() => navigate("/dashboard")}
           >
             <FaUserMd className="text-xl" />
             <span>CIPLA</span>
-          </div>
+          </div> */}
 
           {/* Right: Menu Items */}
           <div className="flex items-center space-x-6">
@@ -149,7 +148,7 @@ const Navbar = () => {
 
         {/* Mobile Dropdown Menu */}
         {menuOpen && (
-          <div className="md:hidden bg-blue-600 text-white rounded-lg p-4 space-y-4">
+          <div className="md:hidden bg-[#6A1916] text-white rounded-lg p-4 space-y-4">
             <div
               className="flex items-center space-x-2 cursor-pointer"
               onClick={() => navigate("/dashboard")}
@@ -209,7 +208,7 @@ const Navbar = () => {
             </div>
             <button
               onClick={handleLogout}
-              className=" py-1 rounded flex items-center justify-center gap-1 cursor-pointer"
+              className="py-1 rounded flex items-center justify-center gap-1 cursor-pointer"
             >
               <FiLogOut />
               Logout
