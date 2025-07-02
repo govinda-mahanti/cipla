@@ -117,96 +117,83 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     }, "image/jpeg");
   };
 
-const cropVideoToPortraitOnly = (file) => {
-  return new Promise((resolve, reject) => {
-    const video = document.createElement("video");
-    video.src = URL.createObjectURL(file);
-    video.crossOrigin = "anonymous";
-    video.muted = true;
-    video.playsInline = true;
+  const cropVideoToPortraitOnly = async (blob) => {
+  const video = document.createElement("video");
+  video.src = URL.createObjectURL(blob);
+  video.crossOrigin = "anonymous";
+  video.muted = true;
+  await video.play();
 
-    video.onloadedmetadata = () => {
-      const { videoWidth: vw, videoHeight: vh } = video;
-      const originalAspect = vw / vh;
-      const portraitAspect = 9 / 16;
+  const originalWidth = video.videoWidth;
+  const originalHeight = video.videoHeight;
 
-      // Compute crop dimensions for portrait center crop
-      let sWidth = vw;
-      let sHeight = vh;
-      let sx = 0, sy = 0;
+  const targetWidth = 480;
+  const targetHeight = 848;
 
-      if (originalAspect > portraitAspect) {
-        // Video is too wide, crop horizontally
-        sWidth = vh * portraitAspect;
-        sx = (vw - sWidth) / 2;
-      } else {
-        // Video is too tall, crop vertically
-        sHeight = vw / portraitAspect;
-        sy = (vh - sHeight) / 2;
-      }
+  const canvas = document.createElement("canvas");
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const ctx = canvas.getContext("2d");
 
-      const targetWidth = 480;
-      const targetHeight = 848;
+  const canvasStream = canvas.captureStream(30);
 
-      const canvas = document.createElement("canvas");
-      canvas.width = targetWidth;
-      canvas.height = targetHeight;
-      const ctx = canvas.getContext("2d");
+  // Add silent audio (required on some devices/platforms)
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const silence = audioCtx.createBuffer(1, audioCtx.sampleRate * video.duration, audioCtx.sampleRate);
+  const source = audioCtx.createBufferSource();
+  source.buffer = silence;
+  const dest = audioCtx.createMediaStreamDestination();
+  source.connect(dest);
+  source.start();
 
-      const stream = canvas.captureStream(30);
-      const recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
-      const chunks = [];
+  canvasStream.addTrack(dest.stream.getAudioTracks()[0]);
 
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
+  const chunks = [];
+  const recorder = new MediaRecorder(canvasStream, { mimeType: "video/webm;codecs=vp8,opus" });
 
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: "video/webm" });
-        const croppedFile = new File(
-          [blob],
-          `portrait_cropped_${Date.now()}.webm`,
-          { type: "video/webm" }
-        );
-        resolve(croppedFile);
-      };
+  recorder.ondataavailable = (e) => {
+    if (e.data.size > 0) chunks.push(e.data);
+  };
 
-      recorder.onerror = (e) => reject(e);
+  recorder.onstop = () => {
+    const finalBlob = new Blob(chunks, { type: "video/webm" });
+    const finalFile = new File([finalBlob], `portrait_cropped_${Date.now()}.webm`, {
+      type: "video/webm",
+    });
+    setVideoFile(finalFile);
+    setIsCapturingVideo(false);
+    setIsUploaded(false);
+  };
 
-      // Draw loop
-      let recordingStarted = false;
-      let startTime = 0;
+  recorder.start();
 
-      const draw = () => {
-        ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, targetWidth, targetHeight);
+  const draw = () => {
+    if (video.ended || video.paused) {
+      recorder.stop();
+      return;
+    }
 
-        // Ensure at least 1s of recording
-        if (!recordingStarted) {
-          startTime = performance.now();
-          recordingStarted = true;
-        }
+    // Crop horizontally to center 480px from original width
+    const cropX = (originalWidth - targetWidth) / 2;
+    const cropY = (originalHeight - targetHeight) / 2;
 
-        const elapsed = performance.now() - startTime;
+    ctx.drawImage(
+      video,
+      cropX > 0 ? cropX : 0,
+      cropY > 0 ? cropY : 0,
+      targetWidth,
+      targetHeight,
+      0,
+      0,
+      targetWidth,
+      targetHeight
+    );
 
-        if (video.ended || elapsed > 1200) {
-          recorder.stop();
-        } else {
-          requestAnimationFrame(draw);
-        }
-      };
+    requestAnimationFrame(draw);
+  };
 
-      video.onplay = () => {
-        recorder.start();
-        draw();
-      };
-
-      video.onerror = () => reject("Failed to load video");
-      video.play().catch((e) => reject("Failed to play video: " + e.message));
-    };
-  });
+  draw();
 };
-
-
 
 
   const startVideoRecording = () => {
