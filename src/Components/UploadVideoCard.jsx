@@ -88,7 +88,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     await startCamera();
   };
 
- const cropVideoToPortrait = async (videoBlob) => {
+const cropVideoToPortrait = async (videoBlob) => {
   const video = document.createElement("video");
   video.src = URL.createObjectURL(videoBlob);
   video.crossOrigin = "anonymous";
@@ -99,7 +99,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
   const originalHeight = video.videoHeight;
 
   const targetWidth = 480;
-  const targetHeight = 848; // Fixed portrait height (don't use original height)
+  const targetHeight = 848;
 
   const canvas = document.createElement("canvas");
   canvas.width = targetWidth;
@@ -108,44 +108,45 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
 
   const offsetX = (originalWidth - targetWidth) / 2;
 
-  // Create canvas stream
-  let stream = canvas.captureStream(30);
+  // Create video stream from canvas
+  const canvasStream = canvas.captureStream(30);
 
-  // 👇 Add silent audio to fix GCP "no audio track" issue
-  const addSilentAudioTrack = (stream) => {
-    const audioCtx = new AudioContext();
-    const oscillator = audioCtx.createOscillator();
-    const dst = audioCtx.createMediaStreamDestination();
-    oscillator.connect(dst);
-    oscillator.start();
-    oscillator.stop(audioCtx.currentTime + 0.1); // short silence
-    const silentTrack = dst.stream.getAudioTracks()[0];
-    if (silentTrack) {
-      stream.addTrack(silentTrack);
-    }
-    return stream;
-  };
+  // ✅ Add silent audio that lasts the full duration of the video
+  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const silentDuration = video.duration;
 
-  stream = addSilentAudioTrack(stream); // Add silent audio to canvas stream
+  const silentSource = audioContext.createBufferSource();
+  const buffer = audioContext.createBuffer(1, audioContext.sampleRate * silentDuration, audioContext.sampleRate);
+  silentSource.buffer = buffer;
 
-  const newChunks = [];
+  const dest = audioContext.createMediaStreamDestination();
+  silentSource.connect(dest);
+  silentSource.start();
 
-  const recorder = new MediaRecorder(stream, {
-    mimeType: MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-      ? "video/webm;codecs=vp9"
-      : "video/webm",
+  const silentAudioTrack = dest.stream.getAudioTracks()[0];
+
+  // Merge canvas (video) + silent audio into one stream
+  if (silentAudioTrack) {
+    canvasStream.addTrack(silentAudioTrack);
+  }
+
+  const combinedStream = canvasStream;
+
+  const chunks = [];
+  const recorder = new MediaRecorder(combinedStream, {
+    mimeType: "video/webm;codecs=vp8,opus",
   });
 
   recorder.ondataavailable = (e) => {
-    if (e.data.size > 0) newChunks.push(e.data);
+    if (e.data.size > 0) chunks.push(e.data);
   };
 
   recorder.onstop = () => {
-    const croppedBlob = new Blob(newChunks, { type: "video/webm" });
-    const croppedFile = new File([croppedBlob], `portrait_${Date.now()}.webm`, {
+    const finalBlob = new Blob(chunks, { type: "video/webm" });
+    const finalFile = new File([finalBlob], `portrait_${Date.now()}.webm`, {
       type: "video/webm",
     });
-    setVideoFile(croppedFile);
+    setVideoFile(finalFile);
     setIsCapturingVideo(false);
     setIsUploaded(false);
   };
@@ -158,22 +159,13 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
       return;
     }
 
-    ctx.drawImage(
-      video,
-      offsetX,
-      0,
-      targetWidth,
-      targetHeight,
-      0,
-      0,
-      targetWidth,
-      targetHeight
-    );
+    ctx.drawImage(video, offsetX, 0, targetWidth, targetHeight, 0, 0, targetWidth, targetHeight);
     requestAnimationFrame(drawFrame);
   };
 
   drawFrame();
 };
+
 
 
 
