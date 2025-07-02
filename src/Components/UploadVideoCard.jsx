@@ -98,15 +98,23 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
   const originalWidth = video.videoWidth;
   const originalHeight = video.videoHeight;
 
-  const targetWidth = Math.min(480, originalWidth); // portrait width
-  const targetHeight = originalHeight;
+  // Define fixed portrait output resolution
+  const targetWidth = 480;
+  const targetHeight = 854;
 
+  // Calculate crop area from original video to maintain 9:16 crop before resizing
+  const aspectRatio = 9 / 16;
+  const cropHeight = originalHeight;
+  const cropWidth = cropHeight * aspectRatio;
+
+  // Center crop horizontally
+  const offsetX = (originalWidth - cropWidth) / 2;
+
+  // Create canvas at output size (fixed)
   const canvas = document.createElement("canvas");
   canvas.width = targetWidth;
   canvas.height = targetHeight;
   const ctx = canvas.getContext("2d");
-
-  const offsetX = (originalWidth - targetWidth) / 2;
 
   const stream = canvas.captureStream(30); // 30fps
   const newChunks = [];
@@ -147,18 +155,20 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
       video,
       offsetX,
       0,
-      targetWidth,
-      targetHeight,
+      cropWidth,
+      cropHeight,
       0,
       0,
       targetWidth,
       targetHeight
     );
+
     requestAnimationFrame(drawFrame);
   };
 
   drawFrame();
 };
+
 
 
   const capturePhoto = () => {
