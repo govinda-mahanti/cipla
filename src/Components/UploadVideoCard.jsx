@@ -88,6 +88,79 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     await startCamera();
   };
 
+  const cropVideoToPortrait = async (videoBlob) => {
+  const video = document.createElement("video");
+  video.src = URL.createObjectURL(videoBlob);
+  video.crossOrigin = "anonymous";
+  video.muted = true;
+  await video.play();
+
+  const originalWidth = video.videoWidth;
+  const originalHeight = video.videoHeight;
+
+  const targetWidth = Math.min(480, originalWidth); // portrait width
+  const targetHeight = originalHeight;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const ctx = canvas.getContext("2d");
+
+  const offsetX = (originalWidth - targetWidth) / 2;
+
+  const stream = canvas.captureStream(30); // 30fps
+  const newChunks = [];
+
+  const recorder = new MediaRecorder(stream, {
+    mimeType: MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+      ? "video/webm;codecs=vp9"
+      : "video/webm",
+  });
+
+  recorder.ondataavailable = (e) => {
+    if (e.data.size > 0) newChunks.push(e.data);
+  };
+
+  recorder.onstop = () => {
+    const croppedBlob = new Blob(newChunks, { type: "video/webm" });
+    const croppedFile = new File(
+      [croppedBlob],
+      `portrait_${Date.now()}.webm`,
+      {
+        type: "video/webm",
+      }
+    );
+    setVideoFile(croppedFile);
+    setIsCapturingVideo(false);
+    setIsUploaded(false);
+  };
+
+  recorder.start();
+
+  const drawFrame = () => {
+    if (video.paused || video.ended) {
+      recorder.stop();
+      return;
+    }
+
+    ctx.drawImage(
+      video,
+      offsetX,
+      0,
+      targetWidth,
+      targetHeight,
+      0,
+      0,
+      targetWidth,
+      targetHeight
+    );
+    requestAnimationFrame(drawFrame);
+  };
+
+  drawFrame();
+};
+
+
   const capturePhoto = () => {
     if (!canvasRef.current || !videoRef.current) return;
     const video = videoRef.current;
@@ -138,16 +211,20 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) recordedChunks.current.push(e.data);
       };
-
+//mmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm
       mediaRecorder.onstop = () => {
-        const blob = new Blob(recordedChunks.current, { type: mimeType });
-        const file = new File([blob], `captured_${Date.now()}.mp4`, {
-          type: "video/mp4",
-        });
-        setVideoFile(file);
-        setIsCapturingVideo(false);
-        setIsUploaded(false);
-      };
+  const blob = new Blob(recordedChunks.current, { type: mimeType });
+  const originalFile = new File([blob], `captured_${Date.now()}.webm`, {
+    type: mimeType,
+  });
+
+  // Optional: set original file temporarily
+  setVideoFile(originalFile);
+
+  // Crop and save portrait version
+  cropVideoToPortrait(blob);
+};
+
 
       mediaRecorder.start();
       setIsCapturingVideo(true);
