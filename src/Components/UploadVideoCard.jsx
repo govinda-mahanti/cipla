@@ -143,17 +143,30 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
       return;
     }
 
+    // ctx.drawImage(
+    //   video,
+    //   offsetX,
+    //   0,
+    //   targetWidth,
+    //   targetHeight,
+    //   0,
+    //   0,
+    //   targetWidth,
+    //   targetHeight
+    // );
+
     ctx.drawImage(
-      video,
-      offsetX,
-      0,
-      targetWidth,
-      targetHeight,
-      0,
-      0,
-      targetWidth,
-      targetHeight
-    );
+  video,
+  offsetX, // start x in source
+  0, // start y in source
+  targetWidth, // crop width in source
+  originalHeight, // crop height in source
+  0, // dest x
+  0, // dest y
+  targetWidth, // dest width
+  targetHeight // dest height
+);
+
     requestAnimationFrame(drawFrame);
   };
 
