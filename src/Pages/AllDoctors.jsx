@@ -205,44 +205,47 @@ const AllDoctors = () => {
 
       {/* Pagination */}
       <div className="flex justify-center p-4">
-        <div className="inline-flex border rounded overflow-hidden shadow-sm">
-          <button
-            onClick={() => paginate(Math.max(currentPage - 1, 1))}
-            disabled={currentPage === 1}
-            className={`px-4 py-2 text-sm font-medium border-r ${
-              currentPage === 1
-                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                : "text-blue-600 hover:bg-gray-100"
-            }`}
-          >
-            &lt;
-          </button>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((num) => (
-            <button
-              key={num}
-              onClick={() => paginate(num)}
-              className={`px-4 py-2 text-sm font-medium border-r ${
-                num === currentPage
-                  ? "bg-blue-600 text-white"
-                  : "text-blue-600 hover:bg-gray-100"
-              }`}
-            >
-              {num}
-            </button>
-          ))}
-          <button
-            onClick={() => paginate(Math.min(currentPage + 1, totalPages))}
-            disabled={currentPage === totalPages}
-            className={`px-4 py-2 text-sm font-medium ${
-              currentPage === totalPages
-                ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                : "text-blue-600 hover:bg-gray-100"
-            }`}
-          >
-            &gt;
-          </button>
-        </div>
-      </div>
+  <div className="inline-flex flex-wrap justify-center border rounded overflow-hidden shadow-sm max-w-full">
+    <button
+      onClick={() => paginate(Math.max(currentPage - 1, 1))}
+      disabled={currentPage === 1}
+      className={`px-3 py-2 text-xs sm:text-sm font-medium border-r min-w-[2rem] ${
+        currentPage === 1
+          ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+          : "text-blue-600 hover:bg-gray-100"
+      }`}
+    >
+      &lt;
+    </button>
+
+    {Array.from({ length: totalPages }, (_, i) => i + 1).map((num) => (
+      <button
+        key={num}
+        onClick={() => paginate(num)}
+        className={`px-3 py-2 text-xs sm:text-sm font-medium border-r min-w-[2rem] ${
+          num === currentPage
+            ? "bg-blue-600 text-white"
+            : "text-blue-600 hover:bg-gray-100"
+        }`}
+      >
+        {num}
+      </button>
+    ))}
+
+    <button
+      onClick={() => paginate(Math.min(currentPage + 1, totalPages))}
+      disabled={currentPage === totalPages}
+      className={`px-3 py-2 text-xs sm:text-sm font-medium min-w-[2rem] ${
+        currentPage === totalPages
+          ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+          : "text-blue-600 hover:bg-gray-100"
+      }`}
+    >
+      &gt;
+    </button>
+  </div>
+</div>
+
 
       {/* Modal to display image/video */}
       {showModal && selectedDoctor && (
