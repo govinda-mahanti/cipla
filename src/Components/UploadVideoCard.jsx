@@ -107,84 +107,77 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     }, "image/jpeg");
   };
 
-const startRecording = () => {
+const startVideoRecording = () => {
   const video = videoRef.current;
   const canvas = canvasRef.current;
-  if (!video || !canvas || !streamRef.current) return;
+  const stream = video?.srcObject;
+
+  if (!video || !canvas || !stream) {
+    errorToast("Camera not initialized.");
+    return;
+  }
 
   const ctx = canvas.getContext("2d");
+
+  // Force canvas size to portrait 720x1280
   canvas.width = 720;
   canvas.height = 1280;
 
-  const ensureReady = () => {
+  // Ensure video is ready
+  const waitForReady = () => {
     if (video.videoWidth === 0 || video.videoHeight === 0) {
-      requestAnimationFrame(ensureReady);
+      requestAnimationFrame(waitForReady);
       return;
     }
 
-    let startTime = Date.now();
     const drawFrame = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const videoWidth = video.videoWidth;
-      const videoHeight = video.videoHeight;
-      const videoAspect = videoWidth / videoHeight;
-      const canvasAspect = canvas.width / canvas.height;
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
 
-      let sx = 0, sy = 0, sWidth = videoWidth, sHeight = videoHeight;
+      // Rotate and draw to canvas (portrait)
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate((90 * Math.PI) / 180);
+      ctx.drawImage(video, -vh / 2, -vw / 2, vh, vw);
+      ctx.restore();
 
-      if (videoAspect > canvasAspect) {
-        const newWidth = sHeight * canvasAspect;
-        sx = (sWidth - newWidth) / 2;
-        sWidth = newWidth;
-      } else {
-        const newHeight = sWidth / canvasAspect;
-        sy = (sHeight - newHeight) / 2;
-        sHeight = newHeight;
-      }
-
-      ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
       animationFrameIdRef.current = requestAnimationFrame(drawFrame);
     };
 
     drawFrame();
 
-    const canvasStream = canvas.captureStream(30);
-    const audioTrack = streamRef.current.getAudioTracks()[0];
+    // Create stream from canvas
+    const canvasStream = canvas.captureStream(30); // 30 FPS
+    const audioTrack = stream.getAudioTracks()[0];
     canvasStream.addTrack(audioTrack);
 
-    recordedChunksRef.current = [];
-    const recorder = new MediaRecorder(canvasStream, { mimeType: "video/webm" });
+    // Use MediaRecorder
+    recordedChunks.current = [];
+    const mimeType = "video/webm";
+    const recorder = new MediaRecorder(canvasStream, { mimeType });
     mediaRecorderRef.current = recorder;
 
     recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) {
-        recordedChunksRef.current.push(e.data);
-      }
+      if (e.data.size > 0) recordedChunks.current.push(e.data);
     };
 
     recorder.onstop = () => {
       cancelAnimationFrame(animationFrameIdRef.current);
-
-      const duration = Date.now() - startTime;
-      if (duration < 1000) {
-        errorToast("Recording too short. Please record for at least 1 second.");
-        setRecording(false);
-        return;
-      }
-
-      const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
+      const blob = new Blob(recordedChunks.current, { type: mimeType });
       const file = new File([blob], `recorded_${Date.now()}.webm`, {
         type: "video/webm",
       });
       setVideoFile(file);
-      setRecording(false);
+      setIsCapturingVideo(false);
+      setIsUploaded(false);
     };
 
     recorder.start();
-    setRecording(true);
+    setIsCapturingVideo(true);
 
-    setTimeout(() => {
+    maxDurationRef.current = setTimeout(() => {
       if (recorder.state === "recording") {
         recorder.stop();
         successToast("Recording stopped after max duration (40s)");
@@ -192,8 +185,19 @@ const startRecording = () => {
     }, 40000);
   };
 
-  ensureReady();
+  waitForReady();
 };
+
+const stopRecording = () => {
+  if (mediaRecorderRef.current?.state === "recording") {
+    mediaRecorderRef.current.stop();
+  }
+  if (maxDurationRef.current) {
+    clearTimeout(maxDurationRef.current);
+    maxDurationRef.current = null;
+  }
+};
+
 
 
 
