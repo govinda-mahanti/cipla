@@ -108,48 +108,50 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
   };
 
   const startRecording = () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas || !streamRef.current) return;
+  const video = videoRef.current;
+  const canvas = canvasRef.current;
+  if (!video || !canvas || !streamRef.current) return;
 
-    const ctx = canvas.getContext("2d");
-    canvas.width = 720;
-    canvas.height = 1280;
+  const ctx = canvas.getContext("2d");
+  canvas.width = 720;
+  canvas.height = 1280;
 
-    const drawFrame = () => {
-      ctx.save();
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const drawFrame = () => {
+    ctx.save();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const videoWidth = video.videoWidth;
-      const videoHeight = video.videoHeight;
-      const videoAspect = videoWidth / videoHeight;
-      const canvasAspect = canvas.width / canvas.height;
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+    const videoAspect = videoWidth / videoHeight;
+    const canvasAspect = canvas.width / canvas.height;
 
-      let sx = 0, sy = 0, sWidth = videoWidth, sHeight = videoHeight;
+    let sx = 0, sy = 0, sWidth = videoWidth, sHeight = videoHeight;
 
-      if (videoAspect > canvasAspect) {
-        const newWidth = sHeight * canvasAspect;
-        sx = (sWidth - newWidth) / 2;
-        sWidth = newWidth;
-      } else {
-        const newHeight = sWidth / canvasAspect;
-        sy = (sHeight - newHeight) / 2;
-        sHeight = newHeight;
-      }
+    if (videoAspect > canvasAspect) {
+      const newWidth = sHeight * canvasAspect;
+      sx = (sWidth - newWidth) / 2;
+      sWidth = newWidth;
+    } else {
+      const newHeight = sWidth / canvasAspect;
+      sy = (sHeight - newHeight) / 2;
+      sHeight = newHeight;
+    }
 
-      ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
-      ctx.restore();
+    ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+    ctx.restore();
 
-      animationFrameIdRef.current = requestAnimationFrame(drawFrame);
-    };
+    animationFrameIdRef.current = requestAnimationFrame(drawFrame);
+  };
 
-    drawFrame();
+  drawFrame();
 
+  setTimeout(() => {
     const canvasStream = canvas.captureStream(30);
     const audioTrack = streamRef.current.getAudioTracks()[0];
     canvasStream.addTrack(audioTrack);
 
     recordedChunksRef.current = [];
+
     const recorder = new MediaRecorder(canvasStream, { mimeType: "video/webm" });
     mediaRecorderRef.current = recorder;
 
@@ -159,14 +161,25 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
       }
     };
 
-    recorder.onstop = () => {
+    recorder.onstop = async () => {
       cancelAnimationFrame(animationFrameIdRef.current);
-      const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
-      const file = new File([blob], `recorded_${Date.now()}.webm`, {
-        type: "video/webm",
-      });
-      setVideoFile(file);
-      setRecording(false);
+
+      const webmBlob = new Blob(recordedChunksRef.current, { type: "video/webm" });
+
+      try {
+        const mp4Blob = await window.MediaRecorderToMp4.convertToMp4(webmBlob);
+
+        const mp4File = new File([mp4Blob], `recorded_${Date.now()}.mp4`, {
+          type: "video/mp4",
+        });
+
+        setVideoFile(mp4File);
+        setRecording(false);
+        successToast("Recording converted to MP4!");
+      } catch (err) {
+        console.error("MP4 conversion failed:", err);
+        errorToast("Failed to convert video to MP4");
+      }
     };
 
     recorder.start();
@@ -178,7 +191,9 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
         successToast("Recording stopped after max duration (40s)");
       }
     }, 40000);
-  };
+  }, 300); // Give canvas time to start drawing
+};
+
 
   const stopRecording = () => {
     if (mediaRecorderRef.current?.state === "recording") {
