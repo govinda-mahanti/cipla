@@ -1,3 +1,5 @@
+// UploadVideoCard.jsx
+
 import { useState, useRef, useEffect } from "react";
 import { useSelector } from "react-redux";
 import {
@@ -18,31 +20,148 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
   const [uploadedVideoUrl, setUploadedVideoUrl] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isUploaded, setIsUploaded] = useState(false);
-  const [isCapturingVideo, setIsCapturingVideo] = useState(false);
+  const [recording, setRecording] = useState(false);
   const [facingMode, setFacingMode] = useState("user");
-  const [forcePortrait, setForcePortrait] = useState(false);
 
-  const mediaRecorderRef = useRef(null);
+  // Refs
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const recordedChunks = useRef([]);
-  const maxDurationRef = useRef(null);
+  const streamRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const recordedChunksRef = useRef([]);
+  const animationFrameIdRef = useRef(null);
 
   useEffect(() => {
-    const checkOrientation = () => {
-      setForcePortrait(window.innerHeight < window.innerWidth);
+    if ((mode === "photo" || mode === "video") && !streamRef.current) {
+      startCamera();
+    }
+  }, [mode]);
+
+  // Switch between front and back camera
+  const switchCamera = async () => {
+    setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
+    await stopStream();
+    await startCamera();
+  };
+
+  const stopStream = async () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    if (animationFrameIdRef.current) {
+      cancelAnimationFrame(animationFrameIdRef.current);
+    }
+  };
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode,
+        },
+        audio: true,
+      });
+      streamRef.current = stream;
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+    } catch (err) {
+      errorToast("Camera error: " + err.message);
+    }
+  };
+
+  // Start portrait canvas-based recording
+  const startRecording = async () => {
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = 720;
+    canvas.height = 1280;
+
+    const drawFrame = () => {
+      ctx.save();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const video = videoRef.current;
+      const videoWidth = video.videoWidth;
+      const videoHeight = video.videoHeight;
+      const videoAspect = videoWidth / videoHeight;
+      const canvasAspect = canvas.width / canvas.height;
+
+      let sx = 0,
+        sy = 0,
+        sWidth = videoWidth,
+        sHeight = videoHeight;
+
+      if (videoAspect > canvasAspect) {
+        const newWidth = sHeight * canvasAspect;
+        sx = (sWidth - newWidth) / 2;
+        sWidth = newWidth;
+      } else {
+        const newHeight = sWidth / canvasAspect;
+        sy = (sHeight - newHeight) / 2;
+        sHeight = newHeight;
+      }
+
+      ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+      ctx.restore();
+
+      animationFrameIdRef.current = requestAnimationFrame(drawFrame);
     };
-    window.addEventListener("resize", checkOrientation);
-    checkOrientation();
-    return () => window.removeEventListener("resize", checkOrientation);
-  }, []);
+
+    drawFrame();
+
+    const canvasStream = canvas.captureStream(30);
+    const audioTrack = streamRef.current.getAudioTracks()[0];
+    canvasStream.addTrack(audioTrack);
+
+    recordedChunksRef.current = [];
+    const mimeType = "video/webm";
+
+    const recorder = new MediaRecorder(canvasStream, { mimeType });
+    mediaRecorderRef.current = recorder;
+
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        recordedChunksRef.current.push(event.data);
+      }
+    };
+
+    recorder.onstop = () => {
+      cancelAnimationFrame(animationFrameIdRef.current);
+      const blob = new Blob(recordedChunksRef.current, { type: mimeType });
+      const file = new File([blob], `portrait_${Date.now()}.webm`, {
+        type: "video/webm",
+      });
+      setVideoFile(file);
+      setRecording(false);
+    };
+
+    recorder.start();
+    setRecording(true);
+
+    // Stop after 40s
+    setTimeout(() => {
+      if (recorder.state === "recording") {
+        recorder.stop();
+        successToast("Recording stopped after max duration (40s)");
+      }
+    }, 40000);
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.stop();
+    }
+  };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (
-      file &&
-      (file.type.startsWith("video/") || file.type.startsWith("image/"))
-    ) {
+    if (file && (file.type.startsWith("video/") || file.type.startsWith("image/"))) {
       setVideoFile(file);
       setUploadedVideoUrl(null);
       setIsUploaded(false);
@@ -52,134 +171,13 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     }
   };
 
-  const startCamera = async () => {
-    try {
-      const hasPermissions = await navigator.permissions?.query({
-        name: "camera",
-      });
-      if (hasPermissions?.state === "denied") {
-        errorToast("Camera access is denied in browser settings");
-        return;
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 480 },
-          height: { ideal: 848 },
-          aspectRatio: 9 / 16,
-          facingMode,
-        },
-        audio: true,
-      });
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (err) {
-      errorToast("Camera error: " + err.message);
-      console.error(err);
-    }
-  };
-
-  const switchCamera = async () => {
-    setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
-    const stream = videoRef.current?.srcObject;
-    if (stream) stream.getTracks().forEach((t) => t.stop());
-    await startCamera();
-  };
-
-  const capturePhoto = () => {
-    if (!canvasRef.current || !videoRef.current) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-
-    const width = video.videoWidth;
-    const height = video.videoHeight;
-
-    canvas.width = height;
-    canvas.height = width;
-
-    ctx.save();
-    ctx.translate(height / 2, width / 2);
-    ctx.rotate((90 * Math.PI) / 180);
-    ctx.drawImage(video, -width / 2, -height / 2);
-    ctx.restore();
-
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const photoFile = new File([blob], `captured_photo_${Date.now()}.jpg`, {
-          type: "image/jpeg",
-        });
-        setVideoFile(photoFile);
-        setIsUploaded(false);
-      }
-    }, "image/jpeg");
-  };
-
-  const startVideoRecording = () => {
-    const stream = videoRef.current?.srcObject;
-    if (!stream) return errorToast("Camera not initialized.");
-
-    recordedChunks.current = [];
-
-    const mimeType = MediaRecorder.isTypeSupported("video/mp4")
-      ? "video/mp4"
-      : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-      ? "video/webm;codecs=vp9"
-      : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
-      ? "video/webm;codecs=vp8"
-      : "video/webm";
-
-    try {
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = mediaRecorder;
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) recordedChunks.current.push(e.data);
-      };
-
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(recordedChunks.current, { type: mimeType });
-        const file = new File([blob], `captured_${Date.now()}.mp4`, {
-          type: "video/mp4",
-        });
-        setVideoFile(file);
-        setIsCapturingVideo(false);
-        setIsUploaded(false);
-      };
-
-      mediaRecorder.start();
-      setIsCapturingVideo(true);
-
-      maxDurationRef.current = setTimeout(() => {
-        if (mediaRecorder.state === "recording") {
-          mediaRecorder.stop();
-          successToast("Recording stopped after max duration (40s)");
-        }
-      }, 40000);
-    } catch (err) {
-      errorToast("Recording error: " + err.message);
-    }
-  };
-
-  const stopVideoRecording = () => {
-    if (mediaRecorderRef.current?.state === "recording") {
-      mediaRecorderRef.current.stop();
-    }
-    if (maxDurationRef.current) {
-      clearTimeout(maxDurationRef.current);
-      maxDurationRef.current = null;
-    }
-  };
-
   const handleSubmit = async () => {
-    const fileToUpload = videoFile;
-    if (!fileToUpload) return errorToast("Please provide a video or photo");
+    if (!videoFile) return errorToast("Please provide a video or photo");
 
     setIsUploading(true);
     const formData = new FormData();
     formData.append("doctor_id", doctorId);
+
     const isImage = videoFile.type.startsWith("image/");
     formData.append(isImage ? "photo" : "video", videoFile);
 
@@ -206,10 +204,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
           );
           setIsUploaded(true);
           successToast(json.message || "Upload successful");
-
-          setTimeout(() => {
-            setShowVideoForm(false);
-          }, 5000);
+          setTimeout(() => setShowVideoForm(false), 5000);
         } else {
           errorToast(json.message || "No file in response");
         }
@@ -218,10 +213,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
         setUploadedVideoUrl(URL.createObjectURL(blob));
         setIsUploaded(true);
         successToast("Upload successful");
-
-        setTimeout(() => {
-          setShowVideoForm(false);
-        }, 3000);
+        setTimeout(() => setShowVideoForm(false), 3000);
       } else {
         errorToast("Unknown response format");
       }
@@ -241,21 +233,17 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
         </div>
 
         <div className="flex justify-between gap-3 mt-6 mb-4">
-          {["upload", "photo", "video"].map((m) => (
+          {["upload", "video"].map((m) => (
             <button
               key={m}
               onClick={() => {
                 setMode(m);
                 setVideoFile(null);
-                if (m !== "upload") startCamera();
+                if (m === "video") startCamera();
               }}
               className={`flex-1 border rounded-md px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 ${
                 mode === m
-                  ? m === "upload"
-                    ? "border-[#6A1916] text-[#6A1916] bg-[#f8e8e5]"
-                    : m === "photo"
-                    ? "border-green-600 text-green-600 bg-green-50"
-                    : "border-purple-600 text-purple-600 bg-purple-50"
+                  ? "border-[#6A1916] text-[#6A1916] bg-[#f8e8e5]"
                   : "border-gray-300 text-gray-600 hover:bg-gray-100"
               }`}
             >
@@ -265,7 +253,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
           ))}
         </div>
 
-        {(mode === "photo" || mode === "video") && (
+        {mode === "video" && (
           <div className="flex justify-end mb-2">
             <button
               onClick={switchCamera}
@@ -293,39 +281,24 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
             </label>
           )}
 
-          {(mode === "photo" || mode === "video") && (
+          {mode === "video" && (
             <>
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-[480px] object-cover rounded-md border border-gray-300 mt-2"
-                style={{
-                  transform: "rotate(0deg)",
-                  objectFit: "cover",
-                  aspectRatio: "9 / 16",
-                }}
+              <video ref={videoRef} autoPlay playsInline muted className="hidden" />
+              <canvas
+                ref={canvasRef}
+                className="w-full max-w-[360px] h-[640px] mx-auto rounded-md border border-gray-300 mt-2"
               />
-              <canvas ref={canvasRef} className="hidden" />
               <div className="flex justify-center mt-2 gap-2">
-                {mode === "photo" ? (
+                {!recording ? (
                   <button
-                    onClick={capturePhoto}
-                    className="bg-green-500 text-white px-4 py-1 rounded-md text-sm hover:bg-green-600"
-                  >
-                    Capture
-                  </button>
-                ) : !isCapturingVideo ? (
-                  <button
-                    onClick={startVideoRecording}
+                    onClick={startRecording}
                     className="bg-purple-500 text-white px-4 py-1 rounded-md text-sm hover:bg-purple-600"
                   >
                     Start
                   </button>
                 ) : (
                   <button
-                    onClick={stopVideoRecording}
+                    onClick={stopRecording}
                     className="bg-purple-700 text-white px-4 py-1 rounded-md text-sm hover:bg-purple-800"
                   >
                     Stop
@@ -339,19 +312,11 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
         {videoFile && !uploadedVideoUrl && !isUploaded && (
           <div className="mt-2">
             <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
-            {videoFile.type.startsWith("video/") ? (
-              <video
-                controls
-                src={URL.createObjectURL(videoFile)}
-                className="w-full rounded-md border border-gray-300"
-              />
-            ) : (
-              <img
-                src={URL.createObjectURL(videoFile)}
-                alt="Captured"
-                className="w-full rounded-md border border-gray-300"
-              />
-            )}
+            <video
+              controls
+              src={URL.createObjectURL(videoFile)}
+              className="w-full rounded-md border border-gray-300"
+            />
           </div>
         )}
 
