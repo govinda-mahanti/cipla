@@ -107,7 +107,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     }, "image/jpeg");
   };
 
-  const startRecording = () => {
+const startRecording = () => {
   const video = videoRef.current;
   const canvas = canvasRef.current;
   if (!video || !canvas || !streamRef.current) return;
@@ -116,43 +116,44 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
   canvas.width = 720;
   canvas.height = 1280;
 
-  const drawFrame = () => {
-    ctx.save();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const videoWidth = video.videoWidth;
-    const videoHeight = video.videoHeight;
-    const videoAspect = videoWidth / videoHeight;
-    const canvasAspect = canvas.width / canvas.height;
-
-    let sx = 0, sy = 0, sWidth = videoWidth, sHeight = videoHeight;
-
-    if (videoAspect > canvasAspect) {
-      const newWidth = sHeight * canvasAspect;
-      sx = (sWidth - newWidth) / 2;
-      sWidth = newWidth;
-    } else {
-      const newHeight = sWidth / canvasAspect;
-      sy = (sHeight - newHeight) / 2;
-      sHeight = newHeight;
+  const ensureReady = () => {
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      requestAnimationFrame(ensureReady);
+      return;
     }
 
-    ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
-    ctx.restore();
+    let startTime = Date.now();
+    const drawFrame = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    animationFrameIdRef.current = requestAnimationFrame(drawFrame);
-  };
+      const videoWidth = video.videoWidth;
+      const videoHeight = video.videoHeight;
+      const videoAspect = videoWidth / videoHeight;
+      const canvasAspect = canvas.width / canvas.height;
 
-  drawFrame();
+      let sx = 0, sy = 0, sWidth = videoWidth, sHeight = videoHeight;
 
-  const canvasStream = canvas.captureStream(30);
-  const audioTrack = streamRef.current.getAudioTracks()[0];
-  canvasStream.addTrack(audioTrack);
+      if (videoAspect > canvasAspect) {
+        const newWidth = sHeight * canvasAspect;
+        sx = (sWidth - newWidth) / 2;
+        sWidth = newWidth;
+      } else {
+        const newHeight = sWidth / canvasAspect;
+        sy = (sHeight - newHeight) / 2;
+        sHeight = newHeight;
+      }
 
-  recordedChunksRef.current = [];
+      ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+      animationFrameIdRef.current = requestAnimationFrame(drawFrame);
+    };
 
-  // Wait a short time to ensure canvas is drawing
-  setTimeout(() => {
+    drawFrame();
+
+    const canvasStream = canvas.captureStream(30);
+    const audioTrack = streamRef.current.getAudioTracks()[0];
+    canvasStream.addTrack(audioTrack);
+
+    recordedChunksRef.current = [];
     const recorder = new MediaRecorder(canvasStream, { mimeType: "video/webm" });
     mediaRecorderRef.current = recorder;
 
@@ -164,14 +165,15 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
 
     recorder.onstop = () => {
       cancelAnimationFrame(animationFrameIdRef.current);
-      const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
 
-      console.log("Recorded video size:", blob.size);
-      if (blob.size === 0) {
-        errorToast("Recorded video is empty (0 bytes).");
+      const duration = Date.now() - startTime;
+      if (duration < 1000) {
+        errorToast("Recording too short. Please record for at least 1 second.");
+        setRecording(false);
         return;
       }
 
+      const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
       const file = new File([blob], `recorded_${Date.now()}.webm`, {
         type: "video/webm",
       });
@@ -188,8 +190,11 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
         successToast("Recording stopped after max duration (40s)");
       }
     }, 40000);
-  }, 300); // Short delay (300ms) before starting recording
+  };
+
+  ensureReady();
 };
+
 
 
   const stopRecording = () => {
