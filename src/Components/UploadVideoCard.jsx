@@ -107,16 +107,75 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     }, "image/jpeg");
   };
 
+function fixVideoDuration(blob) {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    video.src = URL.createObjectURL(blob);
+    video.crossOrigin = "anonymous";
+    video.muted = true;
+    video.playsInline = true;
+
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    video.onloadedmetadata = () => {
+      if (video.duration === 0 || !isFinite(video.duration)) {
+        reject(new Error("Original blob has invalid duration"));
+        return;
+      }
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      const stream = canvas.captureStream();
+      const audioTrack = video.captureStream().getAudioTracks()[0];
+      if (audioTrack) stream.addTrack(audioTrack);
+
+      const chunks = [];
+      const recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        const fixedBlob = new Blob(chunks, { type: "video/webm" });
+        resolve(fixedBlob);
+      };
+
+      recorder.start();
+      video.play();
+
+      const draw = () => {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        if (!video.ended) requestAnimationFrame(draw);
+      };
+
+      draw();
+
+      video.onended = () => {
+        recorder.stop();
+      };
+    };
+
+    video.onerror = () => {
+      reject(new Error("Failed to load original video blob"));
+    };
+  });
+}
+
+
 const startRecording = () => {
   const video = videoRef.current;
   const canvas = canvasRef.current;
+
   if (!video || !canvas || !streamRef.current) {
     errorToast("Camera or canvas not ready");
     return;
   }
 
   if (video.videoWidth === 0 || video.videoHeight === 0) {
-    errorToast("Camera not ready yet. Please wait a second.");
+    errorToast("Camera not ready yet. Please wait a moment.");
     return;
   }
 
@@ -155,7 +214,7 @@ const startRecording = () => {
 
   const canvasStream = canvas.captureStream(30);
   const audioTrack = streamRef.current.getAudioTracks()[0];
-  canvasStream.addTrack(audioTrack);
+  if (audioTrack) canvasStream.addTrack(audioTrack);
 
   recordedChunksRef.current = [];
 
@@ -168,58 +227,57 @@ const startRecording = () => {
     }
   };
 
-  recorder.onstop = () => {
+  recorder.onstop = async () => {
     cancelAnimationFrame(animationFrameIdRef.current);
 
     if (recordedChunksRef.current.length === 0) {
-      errorToast("No video recorded. Try again.");
+      errorToast("No video recorded.");
       return;
     }
 
     const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
-    const blobUrl = URL.createObjectURL(blob);
 
-    const tempVideo = document.createElement("video");
-    tempVideo.src = blobUrl;
+    try {
+      const fixedBlob = await fixVideoDuration(blob);
+      const fixedVideo = document.createElement("video");
+      fixedVideo.src = URL.createObjectURL(fixedBlob);
 
-    tempVideo.onloadedmetadata = () => {
-      const duration = tempVideo.duration;
-      console.log("🎥 Duration of recorded video:", duration);
+      fixedVideo.onloadedmetadata = () => {
+        if (!fixedVideo.duration || fixedVideo.duration === 0 || !isFinite(fixedVideo.duration)) {
+          errorToast("Duration still invalid. Please re-record.");
+          return;
+        }
 
-      if (isNaN(duration) || duration <= 0 || !isFinite(duration)) {
-        errorToast("Recorded video is invalid (0s duration). Please record again.");
-        return;
-      }
+        const file = new File([fixedBlob], `recorded_${Date.now()}.webm`, {
+          type: "video/webm",
+        });
 
-      const file = new File([blob], `recorded_${Date.now()}.webm`, {
-        type: "video/webm",
-      });
-
-      setVideoFile(file);
-      setRecording(false);
-    };
-
-    tempVideo.onerror = () => {
-      errorToast("Failed to read video metadata.");
-      console.error("❌ Failed to load recorded video blob.");
-    };
+        setVideoFile(file);
+        setRecording(false);
+        successToast("Recording complete and fixed!");
+      };
+    } catch (err) {
+      console.error("❌ Failed to fix duration:", err);
+      errorToast("Failed to fix video. Please re-record.");
+    }
   };
 
-  // ✅ Delay to allow canvas frames before starting recording
+  // Delay to allow first frame to draw before starting recording
   setTimeout(() => {
     recorder.start();
     setRecording(true);
     successToast("Recording started");
 
-    // Auto-stop after 40 seconds
+    // Auto-stop after 40s
     setTimeout(() => {
       if (recorder.state === "recording") {
         recorder.stop();
-        successToast("Recording stopped after max duration (40s)");
+        successToast("Recording stopped (40s limit)");
       }
     }, 40000);
   }, 500);
 };
+
 
 
 
