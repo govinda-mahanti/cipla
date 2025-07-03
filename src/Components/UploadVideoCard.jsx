@@ -117,24 +117,26 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     }, "image/jpeg");
   };
 
- const startVideoRecording = () => {
-  const stream = videoRef.current?.srcObject;
-  if (!stream) return errorToast("Camera not initialized.");
-
+const startVideoRecording = () => {
   const video = videoRef.current;
+  const stream = video?.srcObject;
+  if (!video || !stream) {
+    errorToast("Camera not initialized.");
+    return;
+  }
+
   recordedChunks.current = [];
 
-  // Create canvas for rotated capture
-  const canvas = document.createElement("canvas");
   const width = video.videoWidth;
   const height = video.videoHeight;
 
-  // Swap width/height to make it portrait
-  canvas.width = height;
+  // Create a portrait canvas
+  const canvas = document.createElement("canvas");
+  canvas.width = height; // Swap
   canvas.height = width;
-
   const ctx = canvas.getContext("2d");
 
+  // Live rotation of camera feed to portrait
   const drawRotatedVideo = () => {
     ctx.save();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -144,45 +146,52 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     ctx.restore();
     requestAnimationFrame(drawRotatedVideo);
   };
-
   drawRotatedVideo();
 
+  // Capture rotated video from canvas
   const canvasStream = canvas.captureStream(30); // 30 FPS
   const audioTrack = stream.getAudioTracks()[0];
-  if (audioTrack) canvasStream.addTrack(audioTrack); // Add mic audio
+  if (audioTrack) {
+    canvasStream.addTrack(audioTrack); // Add mic audio to canvas stream
+  }
 
   const mimeType = MediaRecorder.isTypeSupported("video/webm")
     ? "video/webm"
     : "video/mp4";
 
-  const mediaRecorder = new MediaRecorder(canvasStream, { mimeType });
-  mediaRecorderRef.current = mediaRecorder;
+  try {
+    const mediaRecorder = new MediaRecorder(canvasStream, { mimeType });
+    mediaRecorderRef.current = mediaRecorder;
 
-  mediaRecorder.ondataavailable = (e) => {
-    if (e.data.size > 0) recordedChunks.current.push(e.data);
-  };
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) recordedChunks.current.push(e.data);
+    };
 
-  mediaRecorder.onstop = () => {
-    const blob = new Blob(recordedChunks.current, { type: mimeType });
-    const file = new File([blob], `portrait_${Date.now()}.webm`, {
-      type: "video/webm",
-    });
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(recordedChunks.current, { type: mimeType });
+      const file = new File([blob], `portrait_${Date.now()}.webm`, {
+        type: "video/webm",
+      });
 
-    setVideoFile(file);
-    setIsCapturingVideo(false);
-    setIsUploaded(false);
-  };
+      setVideoFile(file);
+      setIsCapturingVideo(false);
+      setIsUploaded(false);
+    };
 
-  mediaRecorder.start();
-  setIsCapturingVideo(true);
+    mediaRecorder.start();
+    setIsCapturingVideo(true);
 
-  maxDurationRef.current = setTimeout(() => {
-    if (mediaRecorder.state === "recording") {
-      mediaRecorder.stop();
-      successToast("Recording stopped after 40s.");
-    }
-  }, 40000);
+    maxDurationRef.current = setTimeout(() => {
+      if (mediaRecorder.state === "recording") {
+        mediaRecorder.stop();
+        successToast("Recording stopped after max duration (40s)");
+      }
+    }, 40000);
+  } catch (err) {
+    errorToast("Recording error: " + err.message);
+  }
 };
+
 
 
   const stopVideoRecording = () => {
