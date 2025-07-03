@@ -116,105 +116,52 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
       }
     }, "image/jpeg");
   };
-const startVideoRecording = () => {
-  const originalStream = videoRef.current?.srcObject;
-  if (!originalStream) {
-    errorToast("Camera not initialized.");
-    return;
-  }
 
-  recordedChunks.current = [];
+  const startVideoRecording = () => {
+    const stream = videoRef.current?.srcObject;
+    if (!stream) return errorToast("Camera not initialized.");
 
-  const video = videoRef.current;
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
+    recordedChunks.current = [];
 
-  // Set output canvas size for portrait
-  const outputWidth = 720;
-  const outputHeight = 1280;
-  canvas.width = outputWidth;
-  canvas.height = outputHeight;
+    const mimeType = MediaRecorder.isTypeSupported("video/mp4")
+      ? "video/mp4"
+      : MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+      ? "video/webm;codecs=vp9"
+      : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
+      ? "video/webm;codecs=vp8"
+      : "video/webm";
 
-  // Start the continuous drawing loop to crop and render
-  const renderLoop = () => {
-    if (!isCapturingVideo || !video.videoWidth || !video.videoHeight) return;
+    try {
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
 
-    const inputWidth = video.videoWidth;
-    const inputHeight = video.videoHeight;
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.current.push(e.data);
+      };
 
-    // Crop horizontally to achieve a portrait 9:16 frame
-    const cropWidth = inputHeight * (9 / 16); // desired aspect ratio
-    const cropX = (inputWidth - cropWidth) / 2;
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks.current, { type: mimeType });
+        const file = new File([blob], `captured_${Date.now()}.mp4`, {
+          type: "video/mp4",
+        });
+        setVideoFile(file);
+        setIsCapturingVideo(false);
+        setIsUploaded(false);
+      };
 
-    ctx.drawImage(
-      video,
-      cropX,
-      0,
-      cropWidth,
-      inputHeight,
-      0,
-      0,
-      outputWidth,
-      outputHeight
-    );
+      mediaRecorder.start();
+      setIsCapturingVideo(true);
 
-    requestAnimationFrame(renderLoop);
+      maxDurationRef.current = setTimeout(() => {
+        if (mediaRecorder.state === "recording") {
+          mediaRecorder.stop();
+          successToast("Recording stopped after max duration (40s)");
+        }
+      }, 40000);
+    } catch (err) {
+      errorToast("Recording error: " + err.message);
+    }
   };
-
-  renderLoop(); // 🔁 Start drawing loop
-
-  // Create canvas stream and add audio from original stream
-  const canvasStream = canvas.captureStream(30); // 30 FPS
-  const audioTrack = originalStream.getAudioTracks()[0];
-  if (audioTrack) {
-    canvasStream.addTrack(audioTrack);
-  }
-
-  // Pick best supported video codec
-  const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-    ? "video/webm;codecs=vp9"
-    : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
-    ? "video/webm;codecs=vp8"
-    : "video/webm";
-
-  try {
-    const mediaRecorder = new MediaRecorder(canvasStream, { mimeType });
-    mediaRecorderRef.current = mediaRecorder;
-
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) {
-        recordedChunks.current.push(e.data);
-      }
-    };
-
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(recordedChunks.current, { type: mimeType });
-      const file = new File([blob], `captured_${Date.now()}.webm`, {
-        type: "video/webm",
-      });
-      setVideoFile(file);
-      setIsCapturingVideo(false);
-      setIsUploaded(false);
-    };
-
-    mediaRecorder.start();
-    setIsCapturingVideo(true);
-
-    // Stop after max duration (40s)
-    maxDurationRef.current = setTimeout(() => {
-      if (mediaRecorder.state === "recording") {
-        mediaRecorder.stop();
-        successToast("Recording stopped after max duration (40s)");
-      }
-    }, 40000);
-  } catch (err) {
-    errorToast("Recording error: " + err.message);
-    console.error(err);
-  }
-};
-
-
-
 
   const stopVideoRecording = () => {
     if (mediaRecorderRef.current?.state === "recording") {
@@ -348,16 +295,18 @@ const startVideoRecording = () => {
 
           {(mode === "photo" || mode === "video") && (
             <>
-             <video
-  controls
-  src={URL.createObjectURL(videoFile)}
-  className="w-full rounded-md border border-gray-300"
-  style={{
-    objectFit: "cover",
-    aspectRatio: "9 / 16",
-  }}
-/>
-
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-[480px] object-cover rounded-md border border-gray-300 mt-2"
+                style={{
+                  transform: "rotate(0deg)",
+                  objectFit: "cover",
+                  aspectRatio: "9 / 16",
+                }}
+              />
               <canvas ref={canvasRef} className="hidden" />
               <div className="flex justify-center mt-2 gap-2">
                 {mode === "photo" ? (
