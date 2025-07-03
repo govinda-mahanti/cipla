@@ -112,6 +112,11 @@ const startRecording = () => {
   const canvas = canvasRef.current;
   if (!video || !canvas || !streamRef.current) return;
 
+  if (video.videoWidth === 0 || video.videoHeight === 0) {
+    errorToast("Camera not ready yet. Please wait a moment.");
+    return;
+  }
+
   const ctx = canvas.getContext("2d");
   canvas.width = 720;
   canvas.height = 1280;
@@ -150,6 +155,7 @@ const startRecording = () => {
   canvasStream.addTrack(audioTrack);
 
   recordedChunksRef.current = [];
+
   const recorder = new MediaRecorder(canvasStream, { mimeType: "video/webm" });
   mediaRecorderRef.current = recorder;
 
@@ -162,24 +168,22 @@ const startRecording = () => {
   recorder.onstop = () => {
     cancelAnimationFrame(animationFrameIdRef.current);
     if (recordedChunksRef.current.length === 0) {
-      console.warn("No video chunks recorded.");
-      errorToast("Recording failed: No frames captured.");
-      setRecording(false);
+      errorToast("No video recorded. Try again.");
       return;
     }
 
     const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
+
     const file = new File([blob], `recorded_${Date.now()}.webm`, {
       type: "video/webm",
     });
 
-    const videoUrl = URL.createObjectURL(blob);
     const tempVideo = document.createElement("video");
-    tempVideo.src = videoUrl;
+    tempVideo.src = URL.createObjectURL(blob);
     tempVideo.onloadedmetadata = () => {
-      console.log("Recorded video duration:", tempVideo.duration);
+      console.log("Duration of recorded video:", tempVideo.duration);
       if (tempVideo.duration === 0) {
-        errorToast("Recorded video has 0s duration. Try again.");
+        errorToast("Recording failed (duration 0s). Try again.");
         return;
       }
       setVideoFile(file);
@@ -187,16 +191,22 @@ const startRecording = () => {
     };
   };
 
-  recorder.start();
-  setRecording(true);
-
+  // ✅ Draw at least one frame before starting the recorder
   setTimeout(() => {
-    if (recorder.state === "recording") {
-      recorder.stop();
-      successToast("Recording stopped after max duration (40s)");
-    }
-  }, 40000);
+    recorder.start();
+    setRecording(true);
+    successToast("Recording started");
+
+    // Auto stop after 40s
+    setTimeout(() => {
+      if (recorder.state === "recording") {
+        recorder.stop();
+        successToast("Recording auto-stopped at 40s");
+      }
+    }, 40000);
+  }, 200); // Wait 200ms for the canvas to draw a frame
 };
+
 
 
  const stopRecording = () => {
