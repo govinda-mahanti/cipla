@@ -64,11 +64,13 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 480 },
-          height: { ideal: 848 },
-          aspectRatio: 9 / 16,
-          facingMode,
-        },
+  facingMode,
+  aspectRatio: 9 / 16,
+  resizeMode: "crop-and-scale", // optional, helps on Android
+  height: { ideal: 848 },
+  width: { ideal: 480 },
+},
+
         audio: true,
       });
 
@@ -215,18 +217,29 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
 
   const drawRotatedFrame = () => {
     if (!video.paused && !video.ended) {
-      ctx.save();
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.translate(canvas.width / 2, canvas.height / 2);
-      ctx.rotate((90 * Math.PI) / 180);
-      ctx.drawImage(
-        video,
-        -settings.height / 2,
-        -settings.width / 2,
-        settings.height,
-        settings.width
-      );
-      ctx.restore();
+    ctx.save();
+ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+// Auto-detect if rotation is needed based on device orientation
+const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const rotateNeeded = isMobile;
+
+if (rotateNeeded) {
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate((90 * Math.PI) / 180);
+  ctx.drawImage(
+    video,
+    -settings.height / 2,
+    -settings.width / 2,
+    settings.height,
+    settings.width
+  );
+} else {
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+}
+
+ctx.restore();
+
       requestAnimationFrame(drawRotatedFrame);
     }
   };
