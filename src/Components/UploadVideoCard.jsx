@@ -117,55 +117,65 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     }, "image/jpeg");
   };
 
-const startVideoRecording = async () => {
-  const video = videoRef.current;
-  const stream = video?.srcObject;
-  if (!video || !stream) {
+const startVideoRecording = () => {
+  const originalStream = videoRef.current?.srcObject;
+  if (!originalStream) {
     errorToast("Camera not initialized.");
     return;
   }
 
   recordedChunks.current = [];
 
-  // Wait until video metadata is loaded
-  await new Promise((resolve) => {
-    if (video.readyState >= 2) {
-      resolve();
-    } else {
-      video.onloadedmetadata = () => resolve();
-    }
-  });
-
-  const width = video.videoWidth;
-  const height = video.videoHeight;
-
-  // Swap width/height to rotate to portrait
+  const video = videoRef.current;
   const canvas = document.createElement("canvas");
-  canvas.width = height;
-  canvas.height = width;
   const ctx = canvas.getContext("2d");
 
-  const drawRotatedVideo = () => {
-    ctx.save();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.translate(canvas.width / 2, canvas.height / 2);
-    ctx.rotate((90 * Math.PI) / 180);
-    ctx.drawImage(video, -width / 2, -height / 2);
-    ctx.restore();
-    requestAnimationFrame(drawRotatedVideo);
-  };
-  drawRotatedVideo();
+  const inputWidth = video.videoWidth || 1280;
+  const inputHeight = video.videoHeight || 720;
 
-  // Create stream from canvas
+  const outputWidth = 720;
+  const outputHeight = 1280;
+
+  // Set canvas size to portrait
+  canvas.width = outputWidth;
+  canvas.height = outputHeight;
+
+  // Start drawing the cropped center part of the landscape video to the portrait canvas
+  const drawFrame = () => {
+    if (!isCapturingVideo || !video) return;
+
+    // Calculate cropping area
+    const cropWidth = inputHeight * (9 / 16);
+    const cropX = (inputWidth - cropWidth) / 2;
+
+    ctx.drawImage(
+      video,
+      cropX,
+      0,
+      cropWidth,
+      inputHeight,
+      0,
+      0,
+      outputWidth,
+      outputHeight
+    );
+
+    requestAnimationFrame(drawFrame);
+  };
+
+  drawFrame();
+
   const canvasStream = canvas.captureStream(30); // 30 FPS
-  const audioTrack = stream.getAudioTracks()[0];
+  const audioTrack = originalStream.getAudioTracks()[0];
   if (audioTrack) {
-    canvasStream.addTrack(audioTrack); // Add mic audio
+    canvasStream.addTrack(audioTrack);
   }
 
-  const mimeType = MediaRecorder.isTypeSupported("video/webm")
-    ? "video/webm"
-    : "video/mp4";
+  const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+    ? "video/webm;codecs=vp9"
+    : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
+    ? "video/webm;codecs=vp8"
+    : "video/webm";
 
   try {
     const mediaRecorder = new MediaRecorder(canvasStream, { mimeType });
@@ -177,10 +187,9 @@ const startVideoRecording = async () => {
 
     mediaRecorder.onstop = () => {
       const blob = new Blob(recordedChunks.current, { type: mimeType });
-      const file = new File([blob], `portrait_${Date.now()}.webm`, {
+      const file = new File([blob], `captured_${Date.now()}.webm`, {
         type: "video/webm",
       });
-
       setVideoFile(file);
       setIsCapturingVideo(false);
       setIsUploaded(false);
@@ -197,10 +206,9 @@ const startVideoRecording = async () => {
     }, 40000);
   } catch (err) {
     errorToast("Recording error: " + err.message);
+    console.error(err);
   }
 };
-
-
 
 
   const stopVideoRecording = () => {
