@@ -110,10 +110,13 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
 const startRecording = () => {
   const video = videoRef.current;
   const canvas = canvasRef.current;
-  if (!video || !canvas || !streamRef.current) return;
+  if (!video || !canvas || !streamRef.current) {
+    errorToast("Camera or canvas not ready");
+    return;
+  }
 
   if (video.videoWidth === 0 || video.videoHeight === 0) {
-    errorToast("Camera not ready yet. Please wait a moment.");
+    errorToast("Camera not ready yet. Please wait a second.");
     return;
   }
 
@@ -167,45 +170,57 @@ const startRecording = () => {
 
   recorder.onstop = () => {
     cancelAnimationFrame(animationFrameIdRef.current);
+
     if (recordedChunksRef.current.length === 0) {
       errorToast("No video recorded. Try again.");
       return;
     }
 
     const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
-
-    const file = new File([blob], `recorded_${Date.now()}.webm`, {
-      type: "video/webm",
-    });
+    const blobUrl = URL.createObjectURL(blob);
 
     const tempVideo = document.createElement("video");
-    tempVideo.src = URL.createObjectURL(blob);
+    tempVideo.src = blobUrl;
+
     tempVideo.onloadedmetadata = () => {
-      console.log("Duration of recorded video:", tempVideo.duration);
-      if (tempVideo.duration === 0) {
-        errorToast("Recording failed (duration 0s). Try again.");
+      const duration = tempVideo.duration;
+      console.log("🎥 Duration of recorded video:", duration);
+
+      if (isNaN(duration) || duration <= 0 || !isFinite(duration)) {
+        errorToast("Recorded video is invalid (0s duration). Please record again.");
         return;
       }
+
+      const file = new File([blob], `recorded_${Date.now()}.webm`, {
+        type: "video/webm",
+      });
+
       setVideoFile(file);
       setRecording(false);
     };
+
+    tempVideo.onerror = () => {
+      errorToast("Failed to read video metadata.");
+      console.error("❌ Failed to load recorded video blob.");
+    };
   };
 
-  // ✅ Draw at least one frame before starting the recorder
+  // ✅ Delay to allow canvas frames before starting recording
   setTimeout(() => {
     recorder.start();
     setRecording(true);
     successToast("Recording started");
 
-    // Auto stop after 40s
+    // Auto-stop after 40 seconds
     setTimeout(() => {
       if (recorder.state === "recording") {
         recorder.stop();
-        successToast("Recording auto-stopped at 40s");
+        successToast("Recording stopped after max duration (40s)");
       }
     }, 40000);
-  }, 200); // Wait 200ms for the canvas to draw a frame
+  }, 500);
 };
+
 
 
 
