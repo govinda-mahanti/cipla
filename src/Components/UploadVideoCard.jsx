@@ -27,6 +27,10 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
   const canvasRef = useRef(null);
   const recordedChunks = useRef([]);
   const maxDurationRef = useRef(null);
+const recorderRef = useRef(null); // MediaRecorder for canvas stream
+const animationFrameId = useRef(null);
+const [isRecording, setIsRecording] = useState(false);
+
 
   useEffect(() => {
     const checkOrientation = () => {
@@ -53,33 +57,24 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
   };
 
   const startCamera = async () => {
-    try {
-      const hasPermissions = await navigator.permissions?.query({
-        name: "camera",
-      });
-      if (hasPermissions?.state === "denied") {
-        errorToast("Camera access is denied in browser settings");
-        return;
-      }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        width: { ideal: 480 },
+        height: { ideal: 848 },
+        facingMode: "user",
+      },
+      audio: true,
+    });
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 480 },
-          height: { ideal: 848 },
-          aspectRatio: 9 / 16,
-          facingMode,
-        },
-        audio: true,
-      });
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (err) {
-      errorToast("Camera error: " + err.message);
-      console.error(err);
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
     }
-  };
+  } catch (err) {
+    console.error("Camera error:", err);
+  }
+};
+
 
   const switchCamera = async () => {
     setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
@@ -162,6 +157,67 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
       errorToast("Recording error: " + err.message);
     }
   };
+// ////////////////////////////////////////////////////////////////////////////
+  const startRecordingPortrait = () => {
+  const video = videoRef.current;
+  const originalStream = video.srcObject;
+  const canvas = canvasRef.current;
+  const ctx = canvas.getContext("2d");
+
+  const width = video.videoWidth;
+  const height = video.videoHeight;
+
+  // Set canvas size to rotated dimensions
+  canvas.width = height;
+  canvas.height = width;
+
+  // Draw rotated video frame to canvas repeatedly
+  const drawFrame = () => {
+    ctx.save();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate((90 * Math.PI) / 180); // rotate 90 degrees
+    ctx.drawImage(video, -width / 2, -height / 2, width, height);
+    ctx.restore();
+    animationFrameId.current = requestAnimationFrame(drawFrame);
+  };
+  drawFrame();
+
+  // Get canvas stream (rotated video)
+  const canvasStream = canvas.captureStream(30);
+  const audioTrack = originalStream.getAudioTracks()[0];
+  canvasStream.addTrack(audioTrack);
+
+  // Record this canvas stream
+  const mediaRecorder = new MediaRecorder(canvasStream, { mimeType: "video/webm" });
+
+  recorderRef.current = mediaRecorder;
+  recordedChunks.current = [];
+
+  mediaRecorder.ondataavailable = (e) => {
+    if (e.data.size > 0) recordedChunks.current.push(e.data);
+  };
+
+  mediaRecorder.onstop = () => {
+    cancelAnimationFrame(animationFrameId.current);
+    const blob = new Blob(recordedChunks.current, { type: "video/webm" });
+    const file = new File([blob], `portrait_${Date.now()}.webm`, { type: "video/webm" });
+    // Save file to state
+    setVideoFile(file);
+    setIsRecording(false);
+  };
+
+  mediaRecorder.start();
+  setIsRecording(true);
+};
+
+const stopRecording = () => {
+  if (recorderRef.current?.state === "recording") {
+    recorderRef.current.stop();
+  }
+};
+
+// ///////////////////////////////////////////////////////////////////////////////////////
 
   const stopVideoRecording = () => {
     if (mediaRecorderRef.current?.state === "recording") {
@@ -308,7 +364,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
                 }}
               />
               <canvas ref={canvasRef} className="hidden" />
-              <div className="flex justify-center mt-2 gap-2">
+              {/* <div className="flex justify-center mt-2 gap-2">
                 {mode === "photo" ? (
                   <button
                     onClick={capturePhoto}
@@ -331,7 +387,23 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
                     Stop
                   </button>
                 )}
-              </div>
+              </div> */}
+
+              <video ref={videoRef} autoPlay muted playsInline className="w-full h-auto" />
+<canvas ref={canvasRef} className="hidden" />
+
+<div className="flex gap-4 mt-4">
+  {!isRecording ? (
+    <button onClick={startRecordingPortrait} className="bg-purple-600 text-white px-4 py-2 rounded">
+      Start
+    </button>
+  ) : (
+    <button onClick={stopRecording} className="bg-red-600 text-white px-4 py-2 rounded">
+      Stop
+    </button>
+  )}
+</div>
+
             </>
           )}
         </div>
