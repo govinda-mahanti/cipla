@@ -117,7 +117,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     }, "image/jpeg");
   };
 
-const startVideoRecording = () => {
+const startVideoRecording = async () => {
   const video = videoRef.current;
   const stream = video?.srcObject;
   if (!video || !stream) {
@@ -127,16 +127,24 @@ const startVideoRecording = () => {
 
   recordedChunks.current = [];
 
+  // Wait until video metadata is loaded
+  await new Promise((resolve) => {
+    if (video.readyState >= 2) {
+      resolve();
+    } else {
+      video.onloadedmetadata = () => resolve();
+    }
+  });
+
   const width = video.videoWidth;
   const height = video.videoHeight;
 
-  // Create a portrait canvas
+  // Swap width/height to rotate to portrait
   const canvas = document.createElement("canvas");
-  canvas.width = height; // Swap
+  canvas.width = height;
   canvas.height = width;
   const ctx = canvas.getContext("2d");
 
-  // Live rotation of camera feed to portrait
   const drawRotatedVideo = () => {
     ctx.save();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -148,11 +156,11 @@ const startVideoRecording = () => {
   };
   drawRotatedVideo();
 
-  // Capture rotated video from canvas
+  // Create stream from canvas
   const canvasStream = canvas.captureStream(30); // 30 FPS
   const audioTrack = stream.getAudioTracks()[0];
   if (audioTrack) {
-    canvasStream.addTrack(audioTrack); // Add mic audio to canvas stream
+    canvasStream.addTrack(audioTrack); // Add mic audio
   }
 
   const mimeType = MediaRecorder.isTypeSupported("video/webm")
@@ -191,6 +199,7 @@ const startVideoRecording = () => {
     errorToast("Recording error: " + err.message);
   }
 };
+
 
 
 
