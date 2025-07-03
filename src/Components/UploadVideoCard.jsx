@@ -127,32 +127,32 @@ const startVideoRecording = () => {
   recordedChunks.current = [];
 
   const video = videoRef.current;
+
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
 
-  const inputWidth = video.videoWidth || 1280;
-  const inputHeight = video.videoHeight || 720;
-
+  // Set desired output size (portrait)
   const outputWidth = 720;
   const outputHeight = 1280;
 
-  // Set canvas size to portrait
   canvas.width = outputWidth;
   canvas.height = outputHeight;
 
-  // Start drawing the cropped center part of the landscape video to the portrait canvas
   const drawFrame = () => {
-    if (!isCapturingVideo || !video) return;
+    if (!isCapturingVideo || !video.videoWidth || !video.videoHeight) return;
 
-    // Calculate cropping area
-    const cropWidth = inputHeight * (9 / 16);
-    const cropX = (inputWidth - cropWidth) / 2;
+    // Calculate how to crop the center of the landscape feed
+    const inputWidth = video.videoWidth;
+    const inputHeight = video.videoHeight;
+
+    const cropSize = inputHeight * (9 / 16); // width to crop for 9:16
+    const cropX = (inputWidth - cropSize) / 2;
 
     ctx.drawImage(
       video,
       cropX,
       0,
-      cropWidth,
+      cropSize,
       inputHeight,
       0,
       0,
@@ -165,7 +165,7 @@ const startVideoRecording = () => {
 
   drawFrame();
 
-  const canvasStream = canvas.captureStream(30); // 30 FPS
+  const canvasStream = canvas.captureStream(30);
   const audioTrack = originalStream.getAudioTracks()[0];
   if (audioTrack) {
     canvasStream.addTrack(audioTrack);
@@ -209,6 +209,7 @@ const startVideoRecording = () => {
     console.error(err);
   }
 };
+
 
 
   const stopVideoRecording = () => {
@@ -343,18 +344,16 @@ const startVideoRecording = () => {
 
           {(mode === "photo" || mode === "video") && (
             <>
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-[480px] object-cover rounded-md border border-gray-300 mt-2"
-                style={{
-                  transform: "rotate(0deg)",
-                  objectFit: "cover",
-                  aspectRatio: "9 / 16",
-                }}
-              />
+             <video
+  controls
+  src={URL.createObjectURL(videoFile)}
+  className="w-full rounded-md border border-gray-300"
+  style={{
+    objectFit: "cover",
+    aspectRatio: "9 / 16",
+  }}
+/>
+
               <canvas ref={canvasRef} className="hidden" />
               <div className="flex justify-center mt-2 gap-2">
                 {mode === "photo" ? (
