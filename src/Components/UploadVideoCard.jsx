@@ -75,6 +75,28 @@ const [isRecording, setIsRecording] = useState(false);
   }
 };
 
+const drawRotatedLivePreview = () => {
+  const canvas = canvasRef.current;
+  const ctx = canvas.getContext("2d");
+  const video = videoRef.current;
+
+  const width = video.videoWidth;
+  const height = video.videoHeight;
+
+  canvas.width = height;
+  canvas.height = width;
+
+  const render = () => {
+    ctx.save();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate((90 * Math.PI) / 180);
+    ctx.drawImage(video, -width / 2, -height / 2, width, height);
+    ctx.restore();
+    animationFrameId.current = requestAnimationFrame(render);
+  };
+  render();
+};
 
   const switchCamera = async () => {
     setFacingMode((prev) => (prev === "user" ? "environment" : "user"));
@@ -350,62 +372,43 @@ const stopRecording = () => {
           )}
 
           {(mode === "photo" || mode === "video") && (
-            <>
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-[480px] object-cover rounded-md border border-gray-300 mt-2"
-                style={{
-                  transform: "rotate(0deg)",
-                  objectFit: "cover",
-                  aspectRatio: "9 / 16",
-                }}
-              />
-              <canvas ref={canvasRef} className="hidden" />
-              {/* <div className="flex justify-center mt-2 gap-2">
-                {mode === "photo" ? (
-                  <button
-                    onClick={capturePhoto}
-                    className="bg-green-500 text-white px-4 py-1 rounded-md text-sm hover:bg-green-600"
-                  >
-                    Capture
-                  </button>
-                ) : !isCapturingVideo ? (
-                  <button
-                    onClick={startVideoRecording}
-                    className="bg-purple-500 text-white px-4 py-1 rounded-md text-sm hover:bg-purple-600"
-                  >
-                    Start
-                  </button>
-                ) : (
-                  <button
-                    onClick={stopVideoRecording}
-                    className="bg-purple-700 text-white px-4 py-1 rounded-md text-sm hover:bg-purple-800"
-                  >
-                    Stop
-                  </button>
-                )}
-              </div> */}
+  <>
+    {/* Hidden video used as input to canvas */}
+    <video ref={videoRef} autoPlay muted playsInline className="hidden" />
 
-              <video ref={videoRef} autoPlay muted playsInline className="w-full h-auto" />
-<canvas ref={canvasRef} className="hidden" />
+    {/* Canvas visible to show rotated preview */}
+    <canvas
+      ref={canvasRef}
+      className="w-full h-[480px] rounded-md border border-gray-300 mt-2"
+    />
 
-<div className="flex gap-4 mt-4">
-  {!isRecording ? (
-    <button onClick={startRecordingPortrait} className="bg-purple-600 text-white px-4 py-2 rounded">
-      Start
-    </button>
-  ) : (
-    <button onClick={stopRecording} className="bg-red-600 text-white px-4 py-2 rounded">
-      Stop
-    </button>
-  )}
-</div>
+    <div className="flex justify-center mt-4 gap-4">
+      {mode === "photo" ? (
+        <button
+          onClick={capturePhoto}
+          className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 text-sm"
+        >
+          Capture
+        </button>
+      ) : !isRecording ? (
+        <button
+          onClick={startRecordingPortrait}
+          className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 text-sm"
+        >
+          Start
+        </button>
+      ) : (
+        <button
+          onClick={stopRecording}
+          className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 text-sm"
+        >
+          Stop
+        </button>
+      )}
+    </div>
+  </>
+)}
 
-            </>
-          )}
         </div>
 
         {videoFile && !uploadedVideoUrl && !isUploaded && (
