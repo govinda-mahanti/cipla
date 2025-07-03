@@ -207,7 +207,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
 
     const endpoint = isImage
       ? "https://cipla-backend.virtualspheretechnologies.in/api/capture-image"
-      : "https://cipla-backend.virtualspheretechnologies.in/api/merge-with-intro-outro";
+      : "https://cipla-backend.virtualspheretechnologies.in/api/capture-video";
 
     try {
       const response = await axios.post(endpoint, formData, {
