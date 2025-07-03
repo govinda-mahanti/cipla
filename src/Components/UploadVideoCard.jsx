@@ -160,27 +160,32 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
         recordedChunksRef.current.push(e.data);
       }
     };
+recorder.onstop = async () => {
+  cancelAnimationFrame(animationFrameIdRef.current);
 
-    recorder.onstop = async () => {
-      cancelAnimationFrame(animationFrameIdRef.current);
+  const webmBlob = new Blob(recordedChunksRef.current, { type: "video/webm" });
+  console.log("📦 WebM Blob created. Size:", webmBlob.size, "bytes");
 
-      const webmBlob = new Blob(recordedChunksRef.current, { type: "video/webm" });
+  try {
+    console.log("🔄 Starting conversion to MP4...");
 
-      try {
-        const mp4Blob = await window.MediaRecorderToMp4.convertToMp4(webmBlob);
+    const mp4Blob = await window.MediaRecorderToMp4.convertToMp4(webmBlob);
+    console.log("✅ MP4 Blob created. Size:", mp4Blob.size, "bytes");
 
-        const mp4File = new File([mp4Blob], `recorded_${Date.now()}.mp4`, {
-          type: "video/mp4",
-        });
+    const mp4File = new File([mp4Blob], `recorded_${Date.now()}.mp4`, {
+      type: "video/mp4",
+    });
 
-        setVideoFile(mp4File);
-        setRecording(false);
-        successToast("Recording converted to MP4!");
-      } catch (err) {
-        console.error("MP4 conversion failed:", err);
-        errorToast("Failed to convert video to MP4");
-      }
-    };
+    console.log("📁 MP4 File ready:", mp4File);
+    setVideoFile(mp4File);
+    setRecording(false);
+    successToast("Recording converted to MP4!");
+  } catch (err) {
+    console.error("❌ MP4 conversion failed:", err);
+    errorToast("Failed to convert video to MP4");
+  }
+};
+
 
     recorder.start();
     setRecording(true);
