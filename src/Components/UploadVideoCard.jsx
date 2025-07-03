@@ -116,7 +116,6 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
       }
     }, "image/jpeg");
   };
-
 const startVideoRecording = () => {
   const originalStream = videoRef.current?.srcObject;
   if (!originalStream) {
@@ -127,32 +126,31 @@ const startVideoRecording = () => {
   recordedChunks.current = [];
 
   const video = videoRef.current;
-
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
 
-  // Set desired output size (portrait)
+  // Set output canvas size for portrait
   const outputWidth = 720;
   const outputHeight = 1280;
-
   canvas.width = outputWidth;
   canvas.height = outputHeight;
 
-  const drawFrame = () => {
+  // Start the continuous drawing loop to crop and render
+  const renderLoop = () => {
     if (!isCapturingVideo || !video.videoWidth || !video.videoHeight) return;
 
-    // Calculate how to crop the center of the landscape feed
     const inputWidth = video.videoWidth;
     const inputHeight = video.videoHeight;
 
-    const cropSize = inputHeight * (9 / 16); // width to crop for 9:16
-    const cropX = (inputWidth - cropSize) / 2;
+    // Crop horizontally to achieve a portrait 9:16 frame
+    const cropWidth = inputHeight * (9 / 16); // desired aspect ratio
+    const cropX = (inputWidth - cropWidth) / 2;
 
     ctx.drawImage(
       video,
       cropX,
       0,
-      cropSize,
+      cropWidth,
       inputHeight,
       0,
       0,
@@ -160,17 +158,19 @@ const startVideoRecording = () => {
       outputHeight
     );
 
-    requestAnimationFrame(drawFrame);
+    requestAnimationFrame(renderLoop);
   };
 
-  drawFrame();
+  renderLoop(); // 🔁 Start drawing loop
 
-  const canvasStream = canvas.captureStream(30);
+  // Create canvas stream and add audio from original stream
+  const canvasStream = canvas.captureStream(30); // 30 FPS
   const audioTrack = originalStream.getAudioTracks()[0];
   if (audioTrack) {
     canvasStream.addTrack(audioTrack);
   }
 
+  // Pick best supported video codec
   const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
     ? "video/webm;codecs=vp9"
     : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
@@ -182,7 +182,9 @@ const startVideoRecording = () => {
     mediaRecorderRef.current = mediaRecorder;
 
     mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) recordedChunks.current.push(e.data);
+      if (e.data.size > 0) {
+        recordedChunks.current.push(e.data);
+      }
     };
 
     mediaRecorder.onstop = () => {
@@ -198,6 +200,7 @@ const startVideoRecording = () => {
     mediaRecorder.start();
     setIsCapturingVideo(true);
 
+    // Stop after max duration (40s)
     maxDurationRef.current = setTimeout(() => {
       if (mediaRecorder.state === "recording") {
         mediaRecorder.stop();
@@ -209,6 +212,7 @@ const startVideoRecording = () => {
     console.error(err);
   }
 };
+
 
 
 
