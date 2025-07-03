@@ -107,129 +107,84 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     }, "image/jpeg");
   };
 
-const startRecording = () => {
-  const video = videoRef.current;
-  const canvas = canvasRef.current;
-  if (!video || !canvas || !streamRef.current) {
-    errorToast("Camera or canvas not ready");
-    return;
-  }
+  const startRecording = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || !streamRef.current) return;
 
-  if (video.videoWidth === 0 || video.videoHeight === 0) {
-    errorToast("Camera not ready yet. Please wait a second.");
-    return;
-  }
+    const ctx = canvas.getContext("2d");
+    canvas.width = 720;
+    canvas.height = 1280;
 
-  const ctx = canvas.getContext("2d");
-  canvas.width = 720;
-  canvas.height = 1280;
+    const drawFrame = () => {
+      ctx.save();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const drawFrame = () => {
-    ctx.save();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const videoWidth = video.videoWidth;
+      const videoHeight = video.videoHeight;
+      const videoAspect = videoWidth / videoHeight;
+      const canvasAspect = canvas.width / canvas.height;
 
-    const videoWidth = video.videoWidth;
-    const videoHeight = video.videoHeight;
-    const videoAspect = videoWidth / videoHeight;
-    const canvasAspect = canvas.width / canvas.height;
+      let sx = 0, sy = 0, sWidth = videoWidth, sHeight = videoHeight;
 
-    let sx = 0, sy = 0, sWidth = videoWidth, sHeight = videoHeight;
-
-    if (videoAspect > canvasAspect) {
-      const newWidth = sHeight * canvasAspect;
-      sx = (sWidth - newWidth) / 2;
-      sWidth = newWidth;
-    } else {
-      const newHeight = sWidth / canvasAspect;
-      sy = (sHeight - newHeight) / 2;
-      sHeight = newHeight;
-    }
-
-    ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
-    ctx.restore();
-
-    animationFrameIdRef.current = requestAnimationFrame(drawFrame);
-  };
-
-  drawFrame();
-
-  const canvasStream = canvas.captureStream(30);
-  const audioTrack = streamRef.current.getAudioTracks()[0];
-  canvasStream.addTrack(audioTrack);
-
-  recordedChunksRef.current = [];
-
-  const recorder = new MediaRecorder(canvasStream, { mimeType: "video/webm" });
-  mediaRecorderRef.current = recorder;
-
-  recorder.ondataavailable = (e) => {
-    if (e.data.size > 0) {
-      recordedChunksRef.current.push(e.data);
-    }
-  };
-
-  recorder.onstop = () => {
-    cancelAnimationFrame(animationFrameIdRef.current);
-
-    if (recordedChunksRef.current.length === 0) {
-      errorToast("No video recorded. Try again.");
-      return;
-    }
-
-    const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
-    const blobUrl = URL.createObjectURL(blob);
-
-    const tempVideo = document.createElement("video");
-    tempVideo.src = blobUrl;
-
-    tempVideo.onloadedmetadata = () => {
-      const duration = tempVideo.duration;
-      console.log("🎥 Duration of recorded video:", duration);
-
-      if (isNaN(duration) || duration <= 0 || !isFinite(duration)) {
-        errorToast("Recorded video is invalid (0s duration). Please record again.");
-        return;
+      if (videoAspect > canvasAspect) {
+        const newWidth = sHeight * canvasAspect;
+        sx = (sWidth - newWidth) / 2;
+        sWidth = newWidth;
+      } else {
+        const newHeight = sWidth / canvasAspect;
+        sy = (sHeight - newHeight) / 2;
+        sHeight = newHeight;
       }
 
+      ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+      ctx.restore();
+
+      animationFrameIdRef.current = requestAnimationFrame(drawFrame);
+    };
+
+    drawFrame();
+
+    const canvasStream = canvas.captureStream(30);
+    const audioTrack = streamRef.current.getAudioTracks()[0];
+    canvasStream.addTrack(audioTrack);
+
+    recordedChunksRef.current = [];
+    const recorder = new MediaRecorder(canvasStream, { mimeType: "video/webm" });
+    mediaRecorderRef.current = recorder;
+
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) {
+        recordedChunksRef.current.push(e.data);
+      }
+    };
+
+    recorder.onstop = () => {
+      cancelAnimationFrame(animationFrameIdRef.current);
+      const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
       const file = new File([blob], `recorded_${Date.now()}.webm`, {
         type: "video/webm",
       });
-
       setVideoFile(file);
       setRecording(false);
     };
 
-    tempVideo.onerror = () => {
-      errorToast("Failed to read video metadata.");
-      console.error("❌ Failed to load recorded video blob.");
-    };
-  };
-
-  // ✅ Delay to allow canvas frames before starting recording
-  setTimeout(() => {
     recorder.start();
     setRecording(true);
-    successToast("Recording started");
 
-    // Auto-stop after 40 seconds
     setTimeout(() => {
       if (recorder.state === "recording") {
         recorder.stop();
         successToast("Recording stopped after max duration (40s)");
       }
     }, 40000);
-  }, 500);
-};
+  };
 
-
-
-
- const stopRecording = () => {
-  if (mediaRecorderRef.current?.state === "recording") {
-    mediaRecorderRef.current.stop();
-  }
-};
-
+  const stopRecording = () => {
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.stop();
+    }
+  };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -241,44 +196,39 @@ const startRecording = () => {
     }
   };
 
- const handleSubmit = async () => {
-  if (!videoFile) return errorToast("Please provide a video or photo");
+  const handleSubmit = async () => {
+    if (!videoFile) return errorToast("Please provide a video or photo");
+    setIsUploading(true);
 
-  console.log("📤 Uploading file:", videoFile.name, "Type:", videoFile.type, "Size:", videoFile.size);
+    const formData = new FormData();
+    formData.append("doctor_id", doctorId);
+    const isImage = videoFile.type.startsWith("image/");
+    formData.append(isImage ? "photo" : "video", videoFile);
 
-  setIsUploading(true);
+    const endpoint = isImage
+      ? "https://cipla-backend.virtualspheretechnologies.in/api/capture-image"
+      : "https://cipla-backend.virtualspheretechnologies.in/api/merge-with-intro-outro";
 
-  const formData = new FormData();
-  formData.append("doctor_id", doctorId);
-  const isImage = videoFile.type.startsWith("image/");
-  formData.append(isImage ? "photo" : "video", videoFile);
+    try {
+      const response = await axios.post(endpoint, formData, {
+        headers: {
+          Authorization: `${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+        responseType: "blob",
+      });
 
-  const endpoint = isImage
-    ? "https://cipla-backend.virtualspheretechnologies.in/api/capture-image"
-    : "https://cipla-backend.virtualspheretechnologies.in/api/merge-with-intro-outro";
-
-  try {
-    const response = await axios.post(endpoint, formData, {
-      headers: {
-        Authorization: `${token}`,
-        "Content-Type": "multipart/form-data",
-      },
-      responseType: "blob",
-    });
-
-    const blob = new Blob([response.data]);
-    setUploadedVideoUrl(URL.createObjectURL(blob));
-    setIsUploaded(true);
-    successToast("Upload successful");
-    setTimeout(() => setShowVideoForm(false), 3000);
-  } catch (err) {
-    errorToast("Upload failed");
-    console.error("❌ Upload failed", err);
-  } finally {
-    setIsUploading(false);
-  }
-};
-
+      const blob = new Blob([response.data]);
+      setUploadedVideoUrl(URL.createObjectURL(blob));
+      setIsUploaded(true);
+      successToast("Upload successful");
+      setTimeout(() => setShowVideoForm(false), 3000);
+    } catch (err) {
+      errorToast("Upload failed");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center overflow-y-auto">
