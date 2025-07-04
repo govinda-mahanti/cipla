@@ -240,7 +240,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
           Upload or Capture Media for {doctorName}
         </div>
 
-        {/* <div className="flex justify-between gap-3 mt-6 mb-4">
+        <div className="flex justify-between gap-3 mt-6 mb-4">
           {["upload", "photo", "video"].map((m) => (
             <button
               key={m}
@@ -263,45 +263,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
               {m === "upload" ? "Upload" : `Capture ${m}`}
             </button>
           ))}
-        </div> */}
-
-
-        <div className="flex justify-between gap-3 mt-6 mb-4">
-  {["upload", "photo"].map((m) => (
-    <button
-      key={m}
-      onClick={() => {
-        setMode(m);
-        setVideoFile(null);
-        if (m !== "upload") startCamera();
-      }}
-      className={`flex-1 border rounded-md px-3 py-2 text-sm font-medium flex items-center justify-center gap-2 ${
-        mode === m
-          ? m === "upload"
-            ? "border-[#6A1916] text-[#6A1916] bg-[#f8e8e5]"
-            : "border-green-600 text-green-600 bg-green-50"
-          : "border-gray-300 text-gray-600 hover:bg-gray-100"
-      }`}
-    >
-      <FaCamera />
-      {m === "upload" ? "Upload" : `Capture ${m}`}
-    </button>
-  ))}
-  {/* 
-  <button
-    onClick={() => {
-      setMode("video");
-      setVideoFile(null);
-      startCamera();
-    }}
-    className="flex-1 border border-gray-300 text-gray-600 hover:bg-gray-100 rounded-md px-3 py-2 text-sm font-medium flex items-center justify-center gap-2"
-  >
-    <FaCamera />
-    Capture video
-  </button>
-  */}
-</div>
-
+        </div>
 
         {(mode === "photo" || mode === "video") && (
           <div className="flex justify-end mb-2">
