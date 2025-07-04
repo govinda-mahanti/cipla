@@ -107,7 +107,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     }, "image/jpeg");
   };
 
-const startRecording = () => {
+  const startRecording = () => {
   const video = videoRef.current;
   const canvas = canvasRef.current;
   if (!video || !canvas || !streamRef.current) return;
@@ -116,44 +116,43 @@ const startRecording = () => {
   canvas.width = 720;
   canvas.height = 1280;
 
-  const ensureReady = () => {
-    if (video.videoWidth === 0 || video.videoHeight === 0) {
-      requestAnimationFrame(ensureReady);
-      return;
+  const drawFrame = () => {
+    ctx.save();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+    const videoAspect = videoWidth / videoHeight;
+    const canvasAspect = canvas.width / canvas.height;
+
+    let sx = 0, sy = 0, sWidth = videoWidth, sHeight = videoHeight;
+
+    if (videoAspect > canvasAspect) {
+      const newWidth = sHeight * canvasAspect;
+      sx = (sWidth - newWidth) / 2;
+      sWidth = newWidth;
+    } else {
+      const newHeight = sWidth / canvasAspect;
+      sy = (sHeight - newHeight) / 2;
+      sHeight = newHeight;
     }
 
-    let startTime = Date.now();
-    const drawFrame = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+    ctx.restore();
 
-      const videoWidth = video.videoWidth;
-      const videoHeight = video.videoHeight;
-      const videoAspect = videoWidth / videoHeight;
-      const canvasAspect = canvas.width / canvas.height;
+    animationFrameIdRef.current = requestAnimationFrame(drawFrame);
+  };
 
-      let sx = 0, sy = 0, sWidth = videoWidth, sHeight = videoHeight;
+  drawFrame();
 
-      if (videoAspect > canvasAspect) {
-        const newWidth = sHeight * canvasAspect;
-        sx = (sWidth - newWidth) / 2;
-        sWidth = newWidth;
-      } else {
-        const newHeight = sWidth / canvasAspect;
-        sy = (sHeight - newHeight) / 2;
-        sHeight = newHeight;
-      }
+  const canvasStream = canvas.captureStream(30);
+  const audioTrack = streamRef.current.getAudioTracks()[0];
+  canvasStream.addTrack(audioTrack);
 
-      ctx.drawImage(video, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
-      animationFrameIdRef.current = requestAnimationFrame(drawFrame);
-    };
+  recordedChunksRef.current = [];
 
-    drawFrame();
-
-    const canvasStream = canvas.captureStream(30);
-    const audioTrack = streamRef.current.getAudioTracks()[0];
-    canvasStream.addTrack(audioTrack);
-
-    recordedChunksRef.current = [];
+  // Wait a short time to ensure canvas is drawing
+  setTimeout(() => {
     const recorder = new MediaRecorder(canvasStream, { mimeType: "video/webm" });
     mediaRecorderRef.current = recorder;
 
@@ -165,15 +164,14 @@ const startRecording = () => {
 
     recorder.onstop = () => {
       cancelAnimationFrame(animationFrameIdRef.current);
+      const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
 
-      const duration = Date.now() - startTime;
-      if (duration < 1000) {
-        errorToast("Recording too short. Please record for at least 1 second.");
-        setRecording(false);
+      console.log("Recorded video size:", blob.size);
+      if (blob.size === 0) {
+        errorToast("Recorded video is empty (0 bytes).");
         return;
       }
 
-      const blob = new Blob(recordedChunksRef.current, { type: "video/webm" });
       const file = new File([blob], `recorded_${Date.now()}.webm`, {
         type: "video/webm",
       });
@@ -190,11 +188,8 @@ const startRecording = () => {
         successToast("Recording stopped after max duration (40s)");
       }
     }, 40000);
-  };
-
-  ensureReady();
+  }, 300); // Short delay (300ms) before starting recording
 };
-
 
 
   const stopRecording = () => {
@@ -241,7 +236,6 @@ const startRecording = () => {
       successToast("Upload successful");
       setTimeout(() => setShowVideoForm(false), 3000);
     } catch (err) {
-      console.error(err);
       errorToast("Upload failed");
     } finally {
       setIsUploading(false);
