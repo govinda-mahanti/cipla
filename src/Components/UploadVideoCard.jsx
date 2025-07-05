@@ -309,28 +309,28 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
               />
               <canvas ref={canvasRef} className="hidden" />
               <div className="flex justify-center mt-2 gap-2">
-                {mode === "photo" ? (
-                  <button
-                    onClick={capturePhoto}
-                    className="bg-green-500 text-white px-4 py-1 rounded-md text-sm hover:bg-green-600"
-                  >
-                    Capture
-                  </button>
-                ) : !isCapturingVideo ? (
-                  <button
-                    onClick={startVideoRecording}
-                    className="bg-purple-500 text-white px-4 py-1 rounded-md text-sm hover:bg-purple-600"
-                  >
-                    Start
-                  </button>
-                ) : (
-                  <button
-                    onClick={stopVideoRecording}
-                    className="bg-purple-700 text-white px-4 py-1 rounded-md text-sm hover:bg-purple-800"
-                  >
-                    Stop
-                  </button>
-                )}
+                {/* {mode === "photo" ? (
+    <button
+      onClick={capturePhoto}
+      className="bg-green-500 text-white px-4 py-1 rounded-md text-sm hover:bg-green-600"
+    >
+      Capture
+    </button>
+  ) : !isCapturingVideo ? (
+    <button
+      onClick={startVideoRecording}
+      className="bg-purple-500 text-white px-4 py-1 rounded-md text-sm hover:bg-purple-600"
+    >
+      Start
+    </button>
+  ) : (
+    <button
+      onClick={stopVideoRecording}
+      className="bg-purple-700 text-white px-4 py-1 rounded-md text-sm hover:bg-purple-800"
+    >
+      Stop
+    </button>
+  )} */}
               </div>
             </>
           )}
