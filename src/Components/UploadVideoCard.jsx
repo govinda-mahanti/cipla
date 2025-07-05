@@ -241,7 +241,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
         </div>
 
         <div className="flex justify-between gap-3 mt-6 mb-4">
-          {/* {["upload", "photo", "video"].map((m) => (
+          {["upload", "photo", "video"].map((m) => (
             <button
               key={m}
               onClick={() => {
@@ -262,7 +262,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
               <FaCamera />
               {m === "upload" ? "Upload" : `Capture ${m}`}
             </button>
-          ))} */}
+          ))}
 
 
 
