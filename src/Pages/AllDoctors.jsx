@@ -43,7 +43,7 @@ const AllDoctors = () => {
     const fetchDoctors = async () => {
       try {
         const response = await fetch(
-          "https://cipla-backend.virtualspheretechnologies.in/api/getAllDoctors",
+          "https://cipla-backend.virtualspheretechnologies.in/api/totalDoctorsAddedByManager",
           {
             method: "GET",
             headers: {
@@ -190,17 +190,6 @@ const AllDoctors = () => {
               </Listbox.Options>
             </Listbox>
           </div>
-
-          {selectedSpec === "Other" && (
-            <input
-              type="text"
-              placeholder="Custom specialization"
-              value={customSpec}
-              onChange={(e) => setCustomSpec(e.target.value)}
-              className="bg-[#4B0F0D] text-white placeholder-gray-300 px-4 py-2 rounded w-full sm:w-64"
-            />
-          )}
-
           <input
             type="text"
             placeholder="City"

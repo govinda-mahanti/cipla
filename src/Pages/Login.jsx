@@ -39,7 +39,15 @@ const Login = () => {
         const { token, userData } = response.data;
         dispatch(setCredentials({ user: userData, token }));
         successToast("Login successful");
-        navigate("/dashboard", { state: { showAddDoctor: true } });
+
+        if(response.data.userData.role=='admin'){
+          navigate('/admin-dashboard');
+        } else {
+          navigate("/dashboard", { state: { showAddDoctor: true } });
+        }
+
+
+        console.log(response.data)
       }
     } catch (err) {
       console.error("Login failed", err);
