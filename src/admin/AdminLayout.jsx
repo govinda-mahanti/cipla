@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { logOut } from "../redux/authSlice";
+
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
 import PeopleIcon from "@mui/icons-material/People";
@@ -10,6 +13,7 @@ import CloseIcon from "@mui/icons-material/Close";
 const AdminLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const sidebarMenu = [
     { text: "Dashboard", url: "/admin-dashboard", icon: <DashboardIcon /> },
@@ -39,12 +43,12 @@ const AdminLayout = () => {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    navigate("/login");
+    dispatch(logOut());
+    navigate("/");
   };
 
   return (
-    <div className="flex flex-col sm:flex-row min-h-screen">
+    <div className="flex flex-col sm:flex-row h-screen">
       {/* Mobile Header */}
       <div className="sm:hidden bg-[#6A1916] text-white px-4 py-3">
         <div className="flex justify-between items-center">
@@ -53,9 +57,7 @@ const AdminLayout = () => {
             {isSidebarOpen ? <CloseIcon /> : <MenuIcon />}
           </button>
         </div>
-        <div className="text-sm text-right mt-1">
-          {currentTime}
-        </div>
+        <div className="text-sm text-right mt-1">{currentTime}</div>
       </div>
 
       {/* Sidebar */}
@@ -92,14 +94,14 @@ const AdminLayout = () => {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col overflow-hidden">
         {/* Desktop Header */}
         <header className="hidden sm:block bg-[#6A1916] text-white px-6 py-4 text-right text-sm">
           {currentTime}
         </header>
 
         {/* Page Content */}
-        <section className="p-4 sm:p-8 bg-gray-100 flex-1 overflow-auto">
+        <section className="p-4 sm:p-8 bg-gray-100 flex-1 overflow-y-auto">
           <Outlet />
         </section>
       </main>
