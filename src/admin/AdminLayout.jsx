@@ -17,13 +17,19 @@ const AdminLayout = () => {
 
   const sidebarMenu = [
     { text: "Dashboard", url: "/admin-dashboard", icon: <DashboardIcon /> },
-    { text: "All Doctors", url: "/all-doctors-list", icon: <LocalHospitalIcon /> },
+    {
+      text: "All Doctors",
+      url: "/all-doctors-list",
+      icon: <LocalHospitalIcon />,
+    },
     { text: "All Managers", url: "/all-managers", icon: <PeopleIcon /> },
   ];
 
   const [currentTime, setCurrentTime] = useState(() => {
     const now = new Date();
-    const formattedDate = `${now.getDate().toString().padStart(2, "0")}/${(now.getMonth() + 1)
+    const formattedDate = `${now.getDate().toString().padStart(2, "0")}/${(
+      now.getMonth() + 1
+    )
       .toString()
       .padStart(2, "0")}/${now.getFullYear()}`;
     return `${formattedDate} | ${now.toLocaleTimeString()}`;
@@ -34,7 +40,9 @@ const AdminLayout = () => {
   useEffect(() => {
     const intervalId = setInterval(() => {
       const now = new Date();
-      const formattedDate = `${now.getDate().toString().padStart(2, "0")}/${(now.getMonth() + 1)
+      const formattedDate = `${now.getDate().toString().padStart(2, "0")}/${(
+        now.getMonth() + 1
+      )
         .toString()
         .padStart(2, "0")}/${now.getFullYear()}`;
       setCurrentTime(`${formattedDate} | ${now.toLocaleTimeString()}`);
@@ -67,7 +75,9 @@ const AdminLayout = () => {
         }`}
       >
         <div>
-          <h1 className="text-center py-6 text-2xl font-bold hidden sm:block">Admin Panel</h1>
+          <h1 className="text-center py-6 text-2xl font-bold hidden sm:block">
+            Admin Panel
+          </h1>
           <ul className="mt-4 space-y-2 px-4 font-sans font-medium">
             {sidebarMenu.map((item, index) => (
               <li
@@ -90,6 +100,20 @@ const AdminLayout = () => {
             <LogoutIcon />
             <span>Logout</span>
           </button>
+           <div className="mb-2 md:mb-0 text-center mt-3 text-[12px]">
+        © 2025 CIPLA Limited. All rights reserved.
+      </div>
+      <div className="text-center mt-1 text-[12px]">90 Years of Caring for Life</div>
+          <p className="text-[12px] text-center mt-2 text-gray-300">
+            Powered by{" "}
+            <a
+              href="https://virtualspheretechnologies.in"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Virtualsphere Technologies
+            </a>
+          </p>
         </div>
       </aside>
 
