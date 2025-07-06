@@ -69,12 +69,12 @@ const AdminDashboard = () => {
             {totalVideos}
           </p>
         </div>
-        <div className="flex flex-col justify-between p-5 h-[170px] w-[240px] rounded-xl bg-[#864242] text-white relative">
+        {/* <div className="flex flex-col justify-between p-5 h-[170px] w-[240px] rounded-xl bg-[#864242] text-white relative">
           <p className="font-semibold text-xl">Videos Downloaded</p>
           <p className="absolute bottom-3 right-3 font-semibold text-xl">
             {totalDownloads}
           </p>
-        </div>
+        </div> */}
       </div>
     </div>
   );
