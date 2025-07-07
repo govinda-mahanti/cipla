@@ -55,7 +55,7 @@ const AddDoctorCard = ({ setShowForm, setShowVideoForm, setDoctorName, setDoctoe
 
     try {
       const response = await axios.post(
-        "https://cipla-backend.virtualspheretechnologies.in/api/add-doctor",
+        "https://backend.flctech.in/api/add-doctor",
         payload,
         {
           headers: {

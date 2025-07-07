@@ -184,8 +184,8 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
     formData.append(isImage ? "photo" : "video", videoFile);
 
     const endpoint = isImage
-      ? "https://cipla-backend.virtualspheretechnologies.in/api/capture-image"
-      : "https://cipla-backend.virtualspheretechnologies.in/api/merge-with-intro-outro";
+      ? "https://backend.flctech.in/api/capture-image"
+      : "https://backend.flctech.in/api/merge-with-intro-outro";
 
     try {
       const response = await axios.post(endpoint, formData, {
@@ -202,7 +202,7 @@ const UploadVideoCard = ({ setShowVideoForm, doctorName, doctorId }) => {
         const json = JSON.parse(text);
         if (json.fileName) {
           setUploadedVideoUrl(
-            `https://cipla-backend.virtualspheretechnologies.in/api/video/${json.fileName}`
+            `https://backend.flctech.in/api/video/${json.fileName}`
           );
           setIsUploaded(true);
           successToast(json.message || "Upload successful");

@@ -10,10 +10,10 @@ const AdminDashboard = () => {
   const fetchTotals = async (date) => {
     try {
       const doctorRes = await axios.get(
-        `https://cipla-backend.virtualspheretechnologies.in/api/totalDoctorAdded?date=${date}`
+        `https://backend.flctech.in/api/totalDoctorAdded?date=${date}`
       );
       const videoRes = await axios.get(
-        `https://cipla-backend.virtualspheretechnologies.in/api/totalVideosRecorded?date=${date}`
+        `https://backend.flctech.in/api/totalVideosRecorded?date=${date}`
       );
 
       setTotalDoctors(doctorRes?.data.total_doctors || 0);
