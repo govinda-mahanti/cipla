@@ -30,7 +30,7 @@ const Home = () => {
     const fetchCounts = async () => {
       try {
         const doctorRes = await fetch(
-          "https://backend.flctech.in/api/totalDoctors",
+          "https://cipla-backend.virtualspheretechnologies.in/api/totalDoctors",
           {
             headers: {
               "Content-Type": "application/json",
@@ -40,7 +40,7 @@ const Home = () => {
         );
 
         const videoRes = await fetch(
-          "https://backend.flctech.in/api/totalVideos",
+          "https://cipla-backend.virtualspheretechnologies.in/api/totalVideos",
           {
             headers: {
               "Content-Type": "application/json",

@@ -7,7 +7,7 @@ import { ToastContainer } from "react-toastify";
 import AdminLayout from "./admin/AdminLayout";
 import DoctorsList from "./admin/DoctorsList";
 import AllManagers from "./admin/AllManagers";
-import AdminDashboard from "./admin/AdminDashboard";
+import AdminDashboard from "./admin/adminDashboard";
 import AllDoctorsList from "./admin/AllDoctorsList";
 
 function App() {

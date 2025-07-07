@@ -18,7 +18,7 @@ const DoctorsList = () => {
     const fetchDoctors = async () => {
       try {
         const response = await axios.get(
-          `https://backend.flctech.in/api/getTotalDoctorsByManager?emp_code=${id}`,
+          `https://cipla-backend.virtualspheretechnologies.in/api/getTotalDoctorsByManager?emp_code=${id}`,
           {
             headers: {
               "Content-Type": "application/json",
@@ -75,9 +75,9 @@ const DoctorsList = () => {
     const rows = filteredDoctors.map((doc, index) => {
       let media = "No Media";
       if (doc.video_details?.video_file) {
-        media = `https://backend.flctech.in/api/video/${doc.video_details.video_file}`;
+        media = `https://cipla-backend.virtualspheretechnologies.in/api/video/${doc.video_details.video_file}`;
       } else if (doc.video_details?.image_file) {
-        media = `https://backend.flctech.in/api/image/${doc.video_details.image_file}`;
+        media = `https://cipla-backend.virtualspheretechnologies.in/api/image/${doc.video_details.image_file}`;
       }
 
       return [
@@ -183,7 +183,7 @@ const DoctorsList = () => {
                       <button
                         onClick={() =>
                           handleDownload(
-                            `https://backend.flctech.in/api/image/${doc.video_details.image_file}`,
+                            `https://cipla-backend.virtualspheretechnologies.in/api/image/${doc.video_details.image_file}`,
                             `doctor_${doc.doctor_full_name || "image"}.jpg`
                           )
                         }
@@ -197,7 +197,7 @@ const DoctorsList = () => {
                       <button
                         onClick={() =>
                           handleDownload(
-                            `https://backend.flctech.in/api/video/${doc.video_details.video_file}`,
+                            `https://cipla-backend.virtualspheretechnologies.in/api/video/${doc.video_details.video_file}`,
                             `doctor_${doc.doctor_full_name || "video"}.mp4`
                           )
                         }
@@ -262,7 +262,7 @@ const DoctorsList = () => {
               <div className="mb-4">
                 <p className="font-semibold mb-1">Image:</p>
                 <img
-                  src={`https://backend.flctech.in/api/image/${selectedDoctor.video_details.image_file}`}
+                  src={`https://cipla-backend.virtualspheretechnologies.in/api/image/${selectedDoctor.video_details.image_file}`}
                   alt="Doctor"
                   className="w-auto h-[70vh] rounded"
                 />
@@ -275,7 +275,7 @@ const DoctorsList = () => {
                 <video
                   controls
                   className="w-auto h-[70vh] rounded"
-                  src={`https://backend.flctech.in/api/video/${selectedDoctor.video_details.video_file}`}
+                  src={`https://cipla-backend.virtualspheretechnologies.in/api/video/${selectedDoctor.video_details.video_file}`}
                 />
               </div>
             )}

@@ -28,7 +28,7 @@ const Login = () => {
 
     try {
       const response = await axios.post(
-        "https://backend.flctech.in/auth/login",
+        "https://cipla-backend.virtualspheretechnologies.in/auth/login",
         {
           username,
           password,

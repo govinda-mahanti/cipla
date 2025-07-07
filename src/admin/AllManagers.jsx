@@ -16,7 +16,7 @@ const AllManagers = () => {
     const fetchManagers = async () => {
       try {
         const res = await axios.get(
-          "https://backend.flctech.in/api/totalManager"
+          "https://cipla-backend.virtualspheretechnologies.in/api/totalManager"
         );
         console.log("Fetched:", res.data.data);
         setManagerData(res.data.data);
@@ -104,7 +104,7 @@ const AllManagers = () => {
 const handleDownloadDoctors = async (empCode, fullName) => {
   try {
     const response = await axios.get(
-      `https://backend.flctech.in/api/getTotalDoctorsByManager?emp_code=${empCode}`,
+      `https://cipla-backend.virtualspheretechnologies.in/api/getTotalDoctorsByManager?emp_code=${empCode}`,
       {
         headers: {
           "Content-Type": "application/json",

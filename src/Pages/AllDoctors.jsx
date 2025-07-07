@@ -43,7 +43,7 @@ const AllDoctors = () => {
     const fetchDoctors = async () => {
       try {
         const response = await fetch(
-          "https://backend.flctech.in/api/getAllDoctors",
+          "https://cipla-backend.virtualspheretechnologies.in/api/getAllDoctors",
           {
             method: "GET",
             headers: {
@@ -267,7 +267,7 @@ const AllDoctors = () => {
                     <button
                       onClick={() =>
                         handleDownload(
-                          `https://backend.flctech.in/api/image/${doc.image_file}`,
+                          `https://cipla-backend.virtualspheretechnologies.in/api/image/${doc.image_file}`,
                           `doctor_${doc.doctor_fullName || "image"}.jpg`
                         )
                       }
@@ -282,7 +282,7 @@ const AllDoctors = () => {
                     <button
                       onClick={() =>
                         handleDownload(
-                          `https://backend.flctech.in/api/video/${doc.video_file}`,
+                          `https://cipla-backend.virtualspheretechnologies.in/api/video/${doc.video_file}`,
                           `doctor_${doc.doctor_fullName || "video"}.mp4`
                         )
                       }
@@ -356,7 +356,7 @@ const AllDoctors = () => {
               <div>
                 <h4 className="font-medium text-gray-700 mb-1">Image</h4>
                 <img
-                  src={`https://backend.flctech.in/api/image/${selectedDoctor.image_file}`}
+                  src={`https://cipla-backend.virtualspheretechnologies.in/api/image/${selectedDoctor.image_file}`}
                   alt="Doctor"
                   className="w-full max-w-sm object-cover rounded border"
                 />
@@ -368,7 +368,7 @@ const AllDoctors = () => {
                 <h4 className="font-medium text-gray-700 mb-1 mt-4">Video</h4>
                 <video
                   controls
-                  src={`https://backend.flctech.in/api/video/${selectedDoctor.video_file}`}
+                  src={`https://cipla-backend.virtualspheretechnologies.in/api/video/${selectedDoctor.video_file}`}
                   className="w-full max-w-sm object-cover rounded border"
                 />
               </div>
