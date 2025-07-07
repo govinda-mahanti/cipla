@@ -43,7 +43,7 @@ const AllDoctors = () => {
     const fetchDoctors = async () => {
       try {
         const response = await fetch(
-          "https://cipla-backend.virtualspheretechnologies.in/api/totalDoctorsAddedByManager",
+          "https://cipla-backend.virtualspheretechnologies.in/api/getAllDoctors",
           {
             method: "GET",
             headers: {
